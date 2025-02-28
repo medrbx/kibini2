@@ -1,0 +1,9 @@
+---
+database:
+    db: toto
+    user: toto
+    pwd: toto
+elasticsearch:
+    node: http://localhost:9200
+dir_log:
+    toto
