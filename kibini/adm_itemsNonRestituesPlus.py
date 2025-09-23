@@ -26,7 +26,7 @@ if r > 0:
 
     subject = "[Kibini] Exemplaires à passer en 'Retard > 90 jours'"
     fromaddr = 'PICHENOT François <fpichenot@ville-roubaix.fr>'
-    to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>'])
+    to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>', 'CHIRLIAS Lucas <lchirlias@ville-roubaix.fr>'])
     content = f"""\
         Exemplaires à passer en "0 - Retiré de la circulation ?" : "Retard > 90 jours".
 	    Bien laisser le champ "2 - Perdu ?" en "Non restitué".
