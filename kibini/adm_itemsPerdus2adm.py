@@ -23,7 +23,7 @@ if r > 0:
 
     subject = "[Kibini] Exemplaires à sortir des collections (perdus et prétendus rendus)"
     fromaddr = 'PICHENOT François <fpichenot@ville-roubaix.fr>'
-    to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>'])
+    to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>', 'CHIRLIAS Lucas <lchirlias@ville-roubaix.fr>'])
     content = f"""\
         Exemplaires à sortir des collections.
         Documents passés en perdu ou prétendus rendus depuis plus de 9 semaines.

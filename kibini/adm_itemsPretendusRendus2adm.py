@@ -24,7 +24,7 @@ if r > 0:
 
     subject = "[Kibini] Exemplaires prétendus rendus à traiter"
     fromaddr = 'PICHENOT François <fpichenot@ville-roubaix.fr>'
-    to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>'])
+    to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>', 'CHIRLIAS Lucas <lchirlias@ville-roubaix.fr>'])
     content = f"""\
         Exemplaires prétendus rendus à traiter.
         Documents passés prétendus rendus depuis plus de 3 semaines.

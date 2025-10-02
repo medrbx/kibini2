@@ -25,7 +25,7 @@ if r > 0:
 
     subject = "[Kibini] Retards 180 jours"
     fromaddr = 'PICHENOT François <fpichenot@ville-roubaix.fr>'
-    to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>'])
+    to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>', 'CHIRLIAS Lucas <lchirlias@ville-roubaix.fr>'])
     content = f"""\
         Documents en retard depuis plus de 180 jours, à sortir des collections.
                 {r} documents concernés.

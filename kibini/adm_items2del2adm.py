@@ -22,7 +22,7 @@ if r > 0:
 
     subject = "[Kibini] Exemplaires à supprimer (sauf perdus, abîmés, non restitués)"
     fromaddr = 'PICHENOT François <fpichenot@ville-roubaix.fr>'
-    to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>'])
+    to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>', 'CHIRLIAS Lucas <lchirlias@ville-roubaix.fr>'])
     content = f"""\
         Exemplaires à supprimer.
         Sortis des collections depuis plus d'un mois. Pas abîmés. Pas perdus ni non restitués.
