@@ -1,7 +1,7 @@
-axes.titlesize : 15
+axes.titlesize : 20
 axes.labelsize : 13
 lines.linewidth : 3
 lines.markersize : 10
 xtick.labelsize : 16
-ytick.labelsize : 15
-axes.prop_cycle: cycler(color=['\#9bd4d0','\#e5c075'])
+ytick.labelsize : 14
+#axes.prop_cycle: cycler(color=['black','grey'])
