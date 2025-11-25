@@ -13,7 +13,11 @@ class Vacances():
     
     
     
-  def get_VacancesScolaires(input_data = None, merge_on=None,how='left',keep_zone=None):
+  def get_PeriodesVacances(input_data = None, merge_on=None,how='left',keep_zone=None):
+  """
+  Une méthode qui prend en entrée un dataframe contenant une date, et qui donne en sortie un dataframe enrichie avec les périodes de vacances scolaires
+  """
+  
   
     input_data = self.input_data
     
