@@ -3,32 +3,57 @@ import pandas as pd
 
 from datetime import datetime as dt
 
-data_filepath = "../vacances_scolaires_fr.csv"
-#data_filepath_2 = "/home/kibini/kibini2/kibini/kiblib/vacances_scolaires_fr.csv"
+#data_filepath = "../vacances_scolaires_fr.csv"
+data_filepath = "/home/kibini/kibini2/kibini/kiblib/vacances_scolaires_fr.csv"
 
 class Vacances():
+  """
+  Cette classe permet de manipuler des données relatives aux vacances scolaires
+  """
 
   def __init__(self):
+    """
+    Initialisation de l'instance
+    """
     self.df_vacances = pd.read_csv(data_filepath)
     
     
     
-  def get_PeriodesVacances(input_data = None, merge_on=None,how='left',keep_zone=None):
-  """
-  Une m�thode qui prend en entr�e un dataframe contenant une date, et qui donne en sortie un dataframe enrichie avec les p�riodes de vacances scolaires
-  """
-  
-  
-    input_data = self.input_data
+  def get_PeriodesVacances(self,input_data=None, date_based_on=None,how='left',keep_zone=None):
+    """
+    Cette méthode permet de récupérer des informations sur les vacances scolaires et/ de les ajouter un DataFrame existant
     
-    # Filtrage de la zone vacance � retenir
-    if keep_zone not None:
-    
-      self.bloc_info_vacances = self.df_vacances[['date',f'vacances_zone_{keep_zone}','nom_vacances']]
+      Args:
+        
+        input_data (DataFrame object) : Dataframe en entrée
+        date_based_on = (string) : nom de la colonne à utiliser pour créer une colonne date
+        how (string) : de quel côté fusionner
+        
+        
+      Returns:
+        DataFrame : DataFrame contenant des colonnes avec des informations relatives aux vacances scolaires"
+    """
+
+    if input_data is None:
+      return("L'argument input_data est vide. Rentrez une variable de type DataFrame. ")
       
-    #Ajout d'une colonne au dataframe � enrichir
-    self.input_data['date_to_merge'] = self.input_data[merge_on].dt.date
+    else:
+      self.input_data = input_data
+      self.input_data.loc['datetime'] = pd.to_datetime(self.input_data[date_based_on])
+      self.input_data['date'] = self.input_data['datetime'].date
+      self.input_data.set_index('date',inplace=True)
       
-    # Ajout de l'info_vacance
-    self.df_resultat = self.input_data.merge(self.bloc_info_vacances,left_on='date_to_merge',right_on='date',how=how)
-    
+      
+      self.bloc_info_vacances = self.df_vacances
+      
+      # Filtrage de la zone vacance à retenir
+      if keep_zone is not None:
+        self.bloc_info_vacances = self.bloc_info_vacances[['date',f'vacances_zone_{keep_zone}','nom_vacances']]
+      
+      
+      # Ajout de l'info_vacance
+      self.df_resultat = pd.merge(left=self.input_data,
+                                  right=self.bloc_info_vacances,
+                                  left_on='date',
+                                  right_on='date',
+                                  how=how)
