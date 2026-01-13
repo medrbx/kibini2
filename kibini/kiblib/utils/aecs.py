@@ -207,15 +207,18 @@ class AECS():
         self.aecs_5XX_PopulationToucheeMed = self.aecs_H5XX_df_HorsLesMurs['Total personnes distinctes touchées'].sum()
         self.aecs_503_PopulationTouchee = self.aecs_5XX_NbActionsHorsLesMursMed + self.aecs_5XX_PopulationToucheeCol
         
-        line_break = '\n'
-        footer = '-'*10
         
-        print(f"H5 - ACTIONS HORS DE L'ÉTABLISSEMENT")
-        print(footer)
-        print(f"H501 - Actions hors de l'établissement : OUI")
-        print(f"H502 - Nombre d'actions hors-les-murs : {self.aecs_502_NbActionsHorsLesMurs}")
-        print(f"H503 - Population touchée : {self.aecs_503_PopulationTouchee}")
-        print(f"H504 - Chiffres transmis par le service de prêts à domicile")
+        
+        if print_result==True:
+          line_break = '\n'
+          footer = '-'*10
+          
+          print(f"H5 - ACTIONS HORS DE L'ÉTABLISSEMENT")
+          print(footer)
+          print(f"H501 - Actions hors de l'établissement : OUI")
+          print(f"H502 - Nombre d'actions hors-les-murs : {self.aecs_502_NbActionsHorsLesMurs}")
+          print(f"H503 - Population touchée : {self.aecs_503_PopulationTouchee}")
+          print(f"H504 - Chiffres transmis par le service de prêts à domicile")
         
         
     def get_SLL_H7_PublicsSpecifiques(self):
