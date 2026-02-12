@@ -167,13 +167,15 @@ def get_items(annee, location, db_conn, c2lDict, indices):
     # exemplaires nb_exemplaires_empruntables_pas_empruntés_1_an
     #COUNT(IF(i.notforloan NOT IN (-2, -1, 2) AND i.datelastborrowed <= ('2025-01-01' - INTERVAL 1 YEAR), i.itemnumber, NULL)) AS 'nb_exemplaires_empruntables_pas_empruntés_1_an',
     exemplaires.df['doc_usage_date_dernier_pret'] = pd.to_datetime(exemplaires.df['doc_usage_date_dernier_pret'])       
-    exemplaires.df['nb_exemplaires_empruntables_pas_empruntés_1_an'] = 0               
-    exemplaires.df.loc[  (exemplaires.df['doc_usage_date_dernier_pret'] <= datetime(int(annee), 1, 1)), 'nb_exemplaires_empruntables_pas_empruntés_1_an'] = 1
+    exemplaires.df['nb_exemplaires_empruntables_pas_empruntés_1_an'] = 1               
+    exemplaires.df.loc[  (exemplaires.df['doc_usage_date_dernier_pret'] >= datetime(int(annee), 1, 1)), 'nb_exemplaires_empruntables_pas_empruntés_1_an'] = 0
+    exemplaires.df.loc[  (exemplaires.df['doc_statut_code'] != 0), 'nb_exemplaires_empruntables_pas_empruntés_1_an'] = 0
     
     # exemplaires nb_exemplaires_empruntables_pas_empruntés_3_an
     #COUNT(IF(i.notforloan NOT IN (-2, -1, 2) AND i.datelastborrowed <= ('2025-01-01' - INTERVAL 3 YEAR), i.itemnumber, NULL)) AS 'nb_exemplaires_empruntables_pas_empruntés_3_ans',
-    exemplaires.df['nb_exemplaires_empruntables_pas_empruntés_3_an'] = 0               
-    exemplaires.df.loc[  (exemplaires.df['doc_usage_date_dernier_pret'] <= datetime(int(annee) - 2, 1, 1)), 'nb_exemplaires_empruntables_pas_empruntés_3_an'] = 1
+    exemplaires.df['nb_exemplaires_empruntables_pas_empruntés_3_an'] = 1         
+    exemplaires.df.loc[  (exemplaires.df['doc_usage_date_dernier_pret'] >= datetime(int(annee) - 2, 1, 1)), 'nb_exemplaires_empruntables_pas_empruntés_3_an'] = 0
+    exemplaires.df.loc[  (exemplaires.df['doc_statut_code'] != 0), 'nb_exemplaires_empruntables_pas_empruntés_1_an'] = 0
     
     # exemplaires en prêt
     #COUNT(IF(i.onloan IS NOT NULL OR i.itemlost = 1, i.itemnumber, NULL)) AS 'nb_exemplaires_en_pret'    

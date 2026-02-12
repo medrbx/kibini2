@@ -141,19 +141,19 @@ class AECS():
     
     def get_SLL_H1_PartenariatsAvecDesInstitutions(self):
         
-        self.aecs_H1_df = self.aecs.groupby('H1 - Partenariats avec des institutions')['Total personnes distinctes touchées'].sum().to_frame()
-        return(self.aecs_H1_df)
+        self.aecs_H1XX_df = self.aecs.groupby('H1 - Partenariats avec des institutions')['Total personnes distinctes touchées'].sum().to_frame()
+        return(self.aecs_H1_dfXX)
 
         
         
     def get_SLL_H2_PartenariatsAvecDesEquipementsCulturels(self):
         
-        self.aecs_H2_df = self.aecs[self.aecs["Type de structure"]=="Centre_culturel"].groupby("Nom d'équipement")['Total personnes distinctes touchées'].sum().to_frame()
-        return(self.aecs_H2_df)
+        self.aecs_H2XX_df = self.aecs[self.aecs["Type de structure"]=="Centre_culturel"].groupby("Nom d'équipement")['Total personnes distinctes touchées'].sum().to_frame()
+        return(self.aecs_H2XX_df)
     
     
-    #def get_SLL_H3_PartenariatsAvecDesAssociations(self):
-        
+    def get_SLL_H3_PartenariatsAvecDesAssociations(self):
+        return("Travaux en cours")    
         
         
     
@@ -171,14 +171,15 @@ class AECS():
         
         return(self.aecs_H4XX_df)
         
+    
     def get_SLL_H5_ActionsHorsDelEtablissement(self,print_result=False):
         
         self.aecs_H5XX_df_HorsLesMurs = self.aecs[(self.aecs['Lieu']=='Hors les murs') &
                                                   (self.aecs['index']!='Laetitia D')]
         
-        self.aecs_5XX_NbActionsHorsLesMursMed = self.aecs_H5XX_df_HorsLesMurs['Nb actions'].sum()
-        self.aecs_5XX_NbActionsHorsLesMursCol = len(self.aecs_collectivites)
-        self.aecs_502_NbActionsHorsLesMurs = self.aecs_5XX_NbActionsHorsLesMursCol + self.aecs_5XX_NbActionsHorsLesMursMed
+        self.aecs_H5XX_NbActionsHorsLesMursMed = self.aecs_H5XX_df_HorsLesMurs['Nb actions'].sum()
+        self.aecs_H5XX_NbActionsHorsLesMursCol = len(self.aecs_collectivites)
+        self.aecs_H502_NbActionsHorsLesMurs = self.aecs_5XX_NbActionsHorsLesMursCol + self.aecs_5XX_NbActionsHorsLesMursMed
             
         
         for name in self.list_SchoolNames:
@@ -203,27 +204,14 @@ class AECS():
         
         self.aecs_collectivites_schools = self.aecs_collectivites[["index","Nom","Nb enfants touchés"]]
         
-        self.aecs_5XX_PopulationToucheeCol = self.aecs_collectivites_schools["Nb enfants touchés"].sum()
-        self.aecs_5XX_PopulationToucheeMed = self.aecs_H5XX_df_HorsLesMurs['Total personnes distinctes touchées'].sum()
-        self.aecs_503_PopulationTouchee = self.aecs_5XX_NbActionsHorsLesMursMed + self.aecs_5XX_PopulationToucheeCol
-        
-        
-        
-        if print_result==True:
-          line_break = '\n'
-          footer = '-'*10
-          
-          print(f"H5 - ACTIONS HORS DE L'ÉTABLISSEMENT")
-          print(footer)
-          print(f"H501 - Actions hors de l'établissement : OUI")
-          print(f"H502 - Nombre d'actions hors-les-murs : {self.aecs_502_NbActionsHorsLesMurs}")
-          print(f"H503 - Population touchée : {self.aecs_503_PopulationTouchee}")
-          print(f"H504 - Chiffres transmis par le service de prêts à domicile")
+        self.aecs_H5XX_PopulationToucheeCol = self.aecs_collectivites_schools["Nb enfants touchés"].sum()
+        self.aecs_H5XX_PopulationToucheeMed = self.aecs_H5XX_df_HorsLesMurs['Total personnes distinctes touchées'].sum()
+        self.aecs_H503_PopulationTouchee = self.aecs_5XX_NbActionsHorsLesMursMed + self.aecs_5XX_PopulationToucheeCol
         
         
     def get_SLL_H7_PublicsSpecifiques(self):
         
-        self.aecs_7XX_df = self.aecs.groupby('H7 - Actions et services à destination de publics à besoins spécifiques')['Nb actions','Total personnes distinctes touchées'].sum()
+        self.aecs_H7XX_df = self.aecs.groupby('H7 - Actions et services à destination de publics à besoins spécifiques')['Nb actions','Total personnes distinctes touchées'].sum()
         return(self.aecs_7XX_df)
         
     def get_Statistiques(self,
