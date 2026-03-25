@@ -142,7 +142,7 @@ class AECS():
     def get_SLL_H1_PartenariatsAvecDesInstitutions(self):
         
         self.aecs_H1XX_df = self.aecs.groupby('H1 - Partenariats avec des institutions')['Total personnes distinctes touchées'].sum().to_frame()
-        return(self.aecs_H1_dfXX)
+        return(self.aecs_H1XX_df)
 
         
         
@@ -179,7 +179,7 @@ class AECS():
         
         self.aecs_H5XX_NbActionsHorsLesMursMed = self.aecs_H5XX_df_HorsLesMurs['Nb actions'].sum()
         self.aecs_H5XX_NbActionsHorsLesMursCol = len(self.aecs_collectivites)
-        self.aecs_H502_NbActionsHorsLesMurs = self.aecs_5XX_NbActionsHorsLesMursCol + self.aecs_5XX_NbActionsHorsLesMursMed
+        self.aecs_H502_NbActionsHorsLesMurs = self.aecs_H5XX_NbActionsHorsLesMursCol + self.aecs_H5XX_NbActionsHorsLesMursMed
             
         
         for name in self.list_SchoolNames:
@@ -206,13 +206,13 @@ class AECS():
         
         self.aecs_H5XX_PopulationToucheeCol = self.aecs_collectivites_schools["Nb enfants touchés"].sum()
         self.aecs_H5XX_PopulationToucheeMed = self.aecs_H5XX_df_HorsLesMurs['Total personnes distinctes touchées'].sum()
-        self.aecs_H503_PopulationTouchee = self.aecs_5XX_NbActionsHorsLesMursMed + self.aecs_5XX_PopulationToucheeCol
+        self.aecs_H503_PopulationTouchee = self.aecs_H5XX_NbActionsHorsLesMursMed + self.aecs_H5XX_PopulationToucheeCol
         
         
     def get_SLL_H7_PublicsSpecifiques(self):
         
         self.aecs_H7XX_df = self.aecs.groupby('H7 - Actions et services à destination de publics à besoins spécifiques')['Nb actions','Total personnes distinctes touchées'].sum()
-        return(self.aecs_7XX_df)
+        return(self.aecs_H7XX_df)
         
     def get_Statistiques(self,
                          print_result=False,
