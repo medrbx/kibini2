@@ -14,7 +14,7 @@ user = db_conf["user"]
 pwd = db_conf["pwd"]
 
 date = get_date_and_time("today YYYYMMDD")
-data_dir = Path(__file__).resolve().parent / "data" / "dumps_koha"
+data_dir = Path(__file__).resolve().parent.parent / "data" / "dumps_koha"
 sql_file = data_dir / f"koha_prod_{date}.sql"
 
 # on saute la première ligne du dump (tail -n +2 | mysql)
