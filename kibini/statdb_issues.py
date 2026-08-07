@@ -1,4 +1,6 @@
+import argparse
 import time
+from datetime import date, timedelta
 
 from sqlalchemy import text
 
@@ -12,7 +14,7 @@ STAT_ISSUES_COLUMNS = """
     publicationyear, biblionumber, dateaccessioned
 """
 
-# on insère dans statdb les prêts de la veille
+# on insère dans statdb les prêts de la période traitée
 INSERT_STAT_ISSUES = f"""
     INSERT INTO statdb.stat_issues ({STAT_ISSUES_COLUMNS})
     SELECT
@@ -31,21 +33,53 @@ INSERT_STAT_ISSUES = f"""
     LEFT JOIN koha_prod.borrowers b ON o.borrowernumber = b.borrowernumber
     LEFT JOIN koha_prod.items i ON o.itemnumber = i.itemnumber
     LEFT JOIN koha_prod.biblioitems bi ON i.biblionumber = bi.biblionumber
-    WHERE o.issuedate >= CURDATE() - INTERVAL 1 DAY AND o.issuedate < CURDATE()
+    WHERE o.issuedate >= :start_date AND o.issuedate < :end_date
 """
 
 
-def run(engine, label, query):
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Incorpore dans statdb.stat_issues les prêts d'une date "
+                     "(par défaut : hier) ou d'une plage de dates."
+    )
+    parser.add_argument("--date", help="Ne traiter que cette date (YYYY-MM-DD).")
+    parser.add_argument("--start-date", help="Début de la plage à traiter (YYYY-MM-DD), inclus.")
+    parser.add_argument("--end-date", help="Fin de la plage à traiter (YYYY-MM-DD), incluse.")
+    args = parser.parse_args()
+
+    if args.date and (args.start_date or args.end_date):
+        parser.error("--date est exclusif avec --start-date/--end-date")
+    if bool(args.start_date) != bool(args.end_date):
+        parser.error("--start-date et --end-date doivent être fournis ensemble")
+
+    if args.start_date:
+        start_date = date.fromisoformat(args.start_date)
+        end_date = date.fromisoformat(args.end_date) + timedelta(days=1)
+    elif args.date:
+        start_date = date.fromisoformat(args.date)
+        end_date = start_date + timedelta(days=1)
+    else:
+        start_date = date.today() - timedelta(days=1)
+        end_date = date.today()
+
+    return start_date, end_date
+
+
+def run(engine, label, query, params):
     log.add_info(label)
     start = time.perf_counter()
     with engine.begin() as conn:
-        result = conn.execute(text(query))
+        result = conn.execute(text(query), params)
     elapsed = time.perf_counter() - start
     log.add_info(f"{label} : {elapsed:.2f}s ({result.rowcount} lignes)")
 
 
+start_date, end_date = parse_args()
+params = {"start_date": start_date, "end_date": end_date}
+
 log = Log()
 log.add_info('Lancement')
+log.add_info(f"période traitée : du {start_date} au {end_date - timedelta(days=1)} inclus")
 
 engine = DbConn().create_engine()
 
@@ -57,6 +91,7 @@ run(
     SET cle = CONCAT(issuedate, '-', itemnumber)
     WHERE cle IS NULL
     """,
+    {},
 )
 
 # ajoute la colonne 'cle' à koha_prod.old_issues si elle n'existe pas déjà
@@ -94,17 +129,18 @@ run(
     """
     UPDATE koha_prod.old_issues
     SET cle = CONCAT(issuedate, '-', itemnumber)
-    WHERE returndate >= CURDATE() - INTERVAL 1 DAY AND returndate < CURDATE()
+    WHERE returndate >= :start_date AND returndate < :end_date
     """,
+    params,
 )
 
-# on insère dans statdb les prêts de la veille encore en cours
-run(engine, "insertion issues", INSERT_STAT_ISSUES.format(table="issues"))
+# on insère dans statdb les prêts de la période traitée, encore en cours
+run(engine, "insertion issues", INSERT_STAT_ISSUES.format(table="issues"), params)
 
-# on insère dans statdb les prêts de la veille déjà rendus
-run(engine, "insertion old_issues", INSERT_STAT_ISSUES.format(table="old_issues"))
+# on insère dans statdb les prêts de la période traitée, déjà rendus
+run(engine, "insertion old_issues", INSERT_STAT_ISSUES.format(table="old_issues"), params)
 
-# on répercute dans statdb les retours de la veille
+# on répercute dans statdb les retours de la période traitée
 run(
     engine,
     "MaJ retours",
@@ -113,11 +149,12 @@ run(
     JOIN koha_prod.old_issues o ON i.cle = o.cle
     SET i.returndate = o.returndate, i.renewals = o.renewals_count
     WHERE i.returndate IS NULL
-      AND o.returndate >= CURDATE() - INTERVAL 1 DAY AND o.returndate < CURDATE()
+      AND o.returndate >= :start_date AND o.returndate < :end_date
     """,
+    params,
 )
 
-# on affecte les arrêts de bus de la veille
+# on affecte les arrêts de bus de la période traitée
 run(
     engine,
     "MaJ arrets bus",
@@ -139,8 +176,9 @@ run(
         ELSE 'INC'
     END
     WHERE branch = 'BUS' AND arret_bus IS NULL
-      AND issuedate >= CURDATE() - INTERVAL 1 DAY AND issuedate < CURDATE()
+      AND issuedate >= :start_date AND issuedate < :end_date
     """,
+    params,
 )
 
 # on corrige les ccodes des périodiques
@@ -151,8 +189,9 @@ run(
     UPDATE statdb.stat_issues s
     JOIN statdb.lib_periodiques p ON s.biblionumber = p.biblionumber
     SET s.ccode = p.ccode
-    WHERE s.issuedate >= CURDATE() - INTERVAL 1 DAY AND s.issuedate < CURDATE()
+    WHERE s.issuedate >= :start_date AND s.issuedate < :end_date
     """,
+    params,
 )
 
 log.add_info("Fin traitement\n\n")

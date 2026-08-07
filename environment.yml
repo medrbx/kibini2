@@ -170,9 +170,11 @@ dependencies:
   - zipp=3.7.0=pyhd3eb1b0_0
   - zlib=1.2.11=h7f8727e_4
   - zstd=1.4.9=haebb681_0
-    #  - pip:
+  - pip:
+    # requis par kiblib/utils/db.py
+    - mysql-connector-python
+    # non requis pour l'instant, conservés pour mémoire
     #- elasticsearch5
-    #- mysql-connector-python
     #- mysqlclient
     #- protobuf
     #- python-utils
