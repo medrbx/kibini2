@@ -1,26 +1,20 @@
-#!/usr/bin/env python3
 import os
 import subprocess
-import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from kiblib.utils.conf import Config
 from kiblib.utils.date import get_date_and_time
 from kiblib.utils.log import Log
 
-PROCESS = "statdb_load_koha_prod.py"
-
 log = Log()
-log.add_info(f"{PROCESS} : beginning")
+log.add_info('Lancement')
 
 db_conf = Config().get_config_database()
 user = db_conf["user"]
 pwd = db_conf["pwd"]
 
 date = get_date_and_time("today YYYYMMDD")
-data_dir = Path(__file__).resolve().parent.parent / "data"
+data_dir = Path(__file__).resolve().parent / "data" / "dumps_koha"
 sql_file = data_dir / f"koha_prod_{date}.sql"
 
 # on saute la première ligne du dump (tail -n +2 | mysql)
@@ -47,4 +41,4 @@ mysql_proc.check_returncode()
 
 sql_file.unlink()
 
-log.add_info(f"{PROCESS} : ending\n")
+log.add_info("Fin traitement\n\n")
