@@ -1,7 +1,6 @@
 data
 data_lucas
 kibini/conf/kibini_conf.yml
-kibini/test_bokeh_preinscription.ipynb
 
 
 # Byte-compiled / optimized / DLL files
