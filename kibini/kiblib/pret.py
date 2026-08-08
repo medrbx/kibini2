@@ -39,7 +39,7 @@ class Pret(Adherent, Document):
                     iss.issuedate, -- pret_date,
                     iss.returndate, -- pret_date_retour_effectif,
                     iss.date_due, -- pret_date_retour_prevue,
-                    iss.renewals, -- pret_nb_renouvellement,
+                    iss.renewals_count AS renewals, -- pret_nb_renouvellement,
                     iss.branchcode as issue_branchcode , -- pret_site_pret_code,
                     iss.borrowernumber, -- adh_id,
                     bo.title, -- adh_sexe_code,
