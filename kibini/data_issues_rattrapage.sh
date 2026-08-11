@@ -2,8 +2,8 @@
 # Comble dans statdb.stat_issues les jours sans aucune ligne (jamais traités,
 # ou traitement précédent en échec). Suppose koha_prod déjà à jour.
 #
-# Usage : ./rattrapage_stat_issues.sh [--dry-run] [date_depart AAAA-MM-JJ]
-#   --dry-run   : liste les jours manquants sans lancer statdb_issues.py
+# Usage : ./data_issues_rattrapage.sh [--dry-run] [date_depart AAAA-MM-JJ]
+#   --dry-run   : liste les jours manquants sans lancer data_issues.py
 #   date_depart : début de la fenêtre de recherche des jours vides
 #                 (par défaut : 30 jours avant aujourd'hui)
 #
@@ -77,7 +77,7 @@ fi
 failed_days=()
 while IFS= read -r day; do
     echo "=== Traitement de $day ==="
-    if ! python statdb_issues.py --date "$day"; then
+    if ! python data_issues.py --date "$day"; then
         echo "ECHEC pour $day"
         failed_days+=("$day")
     fi

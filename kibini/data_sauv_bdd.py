@@ -34,4 +34,13 @@ if mysqldump_proc.returncode != 0:
     raise subprocess.CalledProcessError(mysqldump_proc.returncode, mysqldump_proc.args)
 
 log.add_info(f"sauvegarde écrite : {backup_file}")
+
+# on ne garde jamais plus de 2 dumps sur le disque (les noms statdb_AAAAMMJJ.sql.gz
+# se trient chronologiquement par ordre alphabétique)
+NB_DUMPS_A_CONSERVER = 2
+existing_dumps = sorted(backup_dir.glob("statdb_*.sql.gz"))
+for old_dump in existing_dumps[:-NB_DUMPS_A_CONSERVER]:
+    old_dump.unlink()
+    log.add_info(f"ancien dump supprimé : {old_dump}")
+
 log.add_info(f"Fin traitement {log.script_name}\n\n")

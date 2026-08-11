@@ -34,11 +34,11 @@ Prérequis : une section `opteio: {login, password}` dans kibini_conf.yml
 (cf. kiblib/utils/conf.py -> Config.get_config_opteio()).
 
 Usage :
-    python statdb_entrees_opteio.py --last 7
-    python statdb_entrees_opteio.py --start 2026-08-01 --end 2026-08-10
-    python statdb_entrees_opteio.py --site-id 21 --last 30   # site par défaut
-    python statdb_entrees_opteio.py --last 7 --table stat_entrees      # une seule table
-    python statdb_entrees_opteio.py --last 7 --table stat_entrees_det
+    python data_entrees_opteio.py --last 7
+    python data_entrees_opteio.py --start 2026-08-01 --end 2026-08-10
+    python data_entrees_opteio.py --site-id 21 --last 30   # site par défaut
+    python data_entrees_opteio.py --last 7 --table stat_entrees      # une seule table
+    python data_entrees_opteio.py --last 7 --table stat_entrees_det
 
 Idempotence : les deux tables peuvent être rechargées sur une période déjà
 traitée sans créer de doublons, mais pas de la même façon :

@@ -7,6 +7,10 @@ from kiblib.utils.db import DbConn
 from kiblib.utils.conf import Config
 from kiblib.utils.date import get_date_and_time
 
+"""
+script remplacé par data_entrees_opeio.py
+"""
+
 db_conn = DbConn().create_engine()
 
 entrees = pd.read_sql("SELECT * FROM stat_entrees", con=db_conn)

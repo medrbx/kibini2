@@ -2,13 +2,13 @@
 # Comble dans statdb.stat_reserves les jours sans aucune ligne (jamais
 # traités, ou traitement précédent en échec). Suppose koha_prod déjà à jour.
 #
-# Usage : ./rattrapage_stat_reserves.sh [--dry-run] [date_depart AAAA-MM-JJ]
-#   --dry-run   : liste les jours manquants sans lancer statdb_reserves.py
+# Usage : ./data_reserves_rattrapage.sh [--dry-run] [date_depart AAAA-MM-JJ]
+#   --dry-run   : liste les jours manquants sans lancer data_reserves.py
 #   date_depart : début de la fenêtre de recherche des jours vides
 #                 (par défaut : 30 jours avant aujourd'hui)
 #
-# Contrairement à rattrapage_stat_issues.sh, rejouer un jour déjà traité par
-# statdb_reserves.py ne crée pas de doublons (reserves_new exclut déjà les
+# Contrairement à data_issues_rattrapage.sh, rejouer un jour déjà traité par
+# data_reserves.py ne crée pas de doublons (reserves_new exclut déjà les
 # reserve_id présents via NOT IN) : on ne cible ici que les jours vides
 # uniquement pour éviter du travail inutile, pas par nécessité de sécurité.
 
@@ -76,7 +76,7 @@ fi
 failed_days=()
 while IFS= read -r day; do
     echo "=== Traitement de $day ==="
-    if ! python statdb_reserves.py --date "$day"; then
+    if ! python data_reserves.py --date "$day"; then
         echo "ECHEC pour $day"
         failed_days+=("$day")
     fi
