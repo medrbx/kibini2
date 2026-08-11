@@ -14,8 +14,21 @@ tables statdb, à partir d'un seul appel API par lancement :
 Source des comptages : dataset 'inout' de l'API Opteio, via
 kiblib.utils.opteio.OpteioClient (intégré depuis dev/opteio-export).
 
-Schéma de stat_entrees_det : voir schema_stat_entrees_det.sql (table à créer
-manuellement avant le premier lancement - pas de migration automatique).
+stat_entrees_det doit être créée manuellement avant le premier lancement (pas
+de migration automatique) :
+    CREATE TABLE statdb.stat_entrees_det (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        site_id INT NOT NULL,
+        capteur INT NOT NULL,
+        datetime DATETIME NOT NULL,
+        jour DATE NOT NULL,
+        heure TINYINT UNSIGNED NOT NULL,
+        minute TINYINT UNSIGNED NOT NULL,
+        entree INT NOT NULL,
+        sortie INT NOT NULL,
+        UNIQUE KEY uq_site_capteur_datetime (site_id, capteur, datetime),
+        KEY idx_datetime (datetime)
+    );
 
 Prérequis : une section `opteio: {login, password}` dans kibini_conf.yml
 (cf. kiblib/utils/conf.py -> Config.get_config_opteio()).
