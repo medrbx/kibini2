@@ -1,45 +1,66 @@
 #! /bin/bash
 
-date=`date +%Y-%m-%d`
-date_dump=`date +%Y%m%d`
 dayofweek=`date +%u`
 dayofmonth=`date +%d`
 dayofmonthnextweek=`date +%d -d "7 day"`
 
-dir='/home/kibini/kibini_prod/bin/'
 dir_log='/home/kibini/kibini2/log/crontab/'
 dir_kib2='/home/kibini/kibini2'
-dir_data='/home/kibini/kibini_prod/data'
-dir_dump='/home/kibini/kibini2/data/dumps_koha'
 
-# POUR KIBINI2 : on active l'environnement conda
+# on acative l'environnement conda kibini
 conda activate kibini
 
+# CHAQUE JOUR
+# On charge sur preprod la version de koha_prod du jour (copie + décompression intégrées au script)
+python $dir_kib2/kibini/statdb_load_koha_prod.py
 
 # CHAQUE DERNIER MERCREDI DU MOIS
 if [ $dayofweek -eq 3 ] && [ $dayofmonthnextweek -lt $dayofmonth ]
 then
-    # On fait un clich� des donn�es adh�rents
+    # On fait un cliché des données adhérents
     python $dir_kib2/kibini/statdb_adherents.py
-    #perl $dir/es_adherents.pl
 fi
 
-# CHAQUE MERCREDI
-#if [ $dayofweek -eq 3 ]
-#then
-    # On r�alise un dump de statdb
- #   perl $dir/admin_sauv_bdd.pl
-    # On met � jour webkiosk dans ES
- #   perl $dir/es_webkiosk.pl
-    # On met � jour la carte des quartiers
- #   perl $dir/data_carte.pl
-#fi
+# CHAQUE VENDREDI
+if [ $dayofweek -eq 5 ]
+then
+	# On liste les documents à passer en non restitués plus
+	python $dir_kib2/kibini/adm_itemsNonRestituesPlus.py
+
+fi
+
+# CHAQUE PREMIER DU MOIS
+if [ `date +%d` == "01" ]
+then
+    # On envoie aux acquereurs la liste des documents sortis des collections car perdus, pretendus rendus ou non restitués
+	python $dir_kib2/kibini/adm_itemsPerdusPretendusRendus2acquereurs.py
+fi
 
 # CHAQUE JOUR
-# On charge sur preprod la version de koha_prod du jour
-cp $dir_data/dumps_koha/dumps/koha_prod_$date_dump.sql.gz $dir_dump/.
-gunzip $dir_dump/koha_prod_$date_dump.sql.gz
-python $dir_kib2/kibini/statdb_load_koha_prod.py
+# On liste les documents en non restitués plus rendu la veille
+#python $dir_kib2/kibini/adm_itemsNonRestituesPlus_retours.py
+
+# On incorpore dans statdb les prêts et retours de la veille
+python $dir_kib2/kibini/statdb_issues.py
+
+# On incorpore dans statdb les réservations de la veille
+python $dir_kib2/kibini/statdb_reserves.py
+
+# On traite les données liées à la fréquentation de la salle d'étude
+python $dir_kib2/kibini/statdb_freq_etude.py
+
+# On incorpore les entrées
+python $dir_kib2/kibini/statdb_entrees_opteio.py --last 1
+
+# NOUVELLE VERSION
+# On met à jour les données exemplaires
+python $dir_kib2/kibini/statdb_exemplaires.py
+
+# On anonymise statdb
+python $dir_kib2/kibini/statdb_ano.py
+
+# KIBINI2
+python $dir_kib2/kibini/data_prets.py
 
 # CHAQUE MERCREDI
 if [ $dayofweek -eq 3 ]
@@ -62,92 +83,9 @@ then
 	# On liste les documents à passer en retard supérieur à 90 jours
 	python $dir_kib2/kibini/adm_itemsNonRestituesPlus.py
 
+    # On réalise un dump de statdb
+    python $dir_kib2/kibini/admin_sauv_bdd.py
 fi
-
-# CHAQUE JOUR :
-# on finit le chargement de koha_prod (correction périos)
-python $dir_kib2/kibini/statdb_load_koha_prod_end.py
-
-
-# CHAQUE VENDREDI
-if [ $dayofweek -eq 5 ]
-then
-	# On liste les documents à passer en non restitués plus
-	python $dir_kib2/kibini/adm_itemsNonRestituesPlus.py
-
-fi
-
-# CHAQUE PREMIER DU MOIS
-if [ `date +%d` == "01" ]
-then
-    # On envoie aux acquereurs la liste des documents sortis des collections car perdus, pretendus rendus ou non restitués
-	python $dir_kib2/kibini/adm_itemsPerdusPretendusRendus2acquereurs.py
-fi
-
-
-# CHAQUE JOUR
-# On liste les documents en non restitués plus rendu la veille
-#python $dir_kib2/kibini/adm_itemsNonRestituesPlus_retours.py
-
-# On met � jour les stats web
-#bash $dir/web.sh
-
-# On met � jour la table statdb.data_bib
-#perl $dir/data_biblio.pl
-#perl $dir/data_bib.pl # test statdb.data_bib
-
-# On incorpore dans statdb les prêts et retours de la veille
-python $dir_kib2/kibini/statdb_issues.py
-
-# On incorpore dans statdb et ES les r�servations de la veille
-python $dir_kib2/kibini/statdb_reserves.py
-#perl $dir/es_reservations.pl
-
-# On incorpore dans statdb et ES les statisques nedap de la journ�e précédente => désormais impossible
-#perl $dir/statdb_nedap.pl
-#perl $dir/es_rfid.pl
-
-# On traite les donn�es li�es � la fr�quentation de la salle d'�tude
-python $dir_kib2/kibini/statdb_freq_etude.py
-#perl $dir/es_freq_etude.pl
-
-# On incorpore les entrées (comptage Opteio, remplace l'ancien flux de comptage disparu)
-python $dir_kib2/kibini/statdb_entrees_opteio.py --last 1 --table stat_entrees
-#perl $dir/statdb_comptage.pl
-#perl $dir/es_entrees.pl
-
-# On r�cup�re les logs du portail
-#perl $dir/logs_portail.pl
-
-# NOUVELLE VERSION
-# On met � jour les donn�es exemplaires
-python $dir_kib2/kibini/statdb_exemplaires.py
-
-# On anonymise statdb
-python $dir_kib2/kibini/statdb_ano.py
-
-# On met � jour les index Elasticsearch
-#perl $dir/es_update.pl
-
-# KIBINI2
-python $dir_kib2/kibini/data_prets.py
-#python $dir_kib2/kibini/es_maj.py
-
-
-# CHAQUE DIMANCHE
-#if [ $dayofweek -eq 7 ]
-#then
-    # On recr�e les index items et catalogue dans ES
-#    perl $dir/es_items.pl
-#    bash $dir/catmandu_es.sh
-
-#fi
-
-# EXCEPTIONNELLEMENT LE 23/05/2017
-#if [ $date == "2017-05-23" ]
-#then
-#    perl $dir/data_bib2.pl
-#fi
 
 # CHAQUE JOUR
 # On supprime les logs crontab de plus de 30 jours

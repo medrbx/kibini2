@@ -13,7 +13,7 @@ opteio:
 salt: toto
 dir_log: /home/kibini/kibini2/log
 dir_data: /home/kibini/kibini2/data
-dir_webdav: /home/kibini/kibini_prod/data/dumps_koha/
+dir_webdav: /home/kibini/kibini2/data/dumps_koha/
 smtp: 0.0.0.0
 acquereurs:
   - borrowernumber: 0
