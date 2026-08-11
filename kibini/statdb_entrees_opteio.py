@@ -24,6 +24,8 @@ Usage :
     python statdb_entrees_opteio.py --last 7
     python statdb_entrees_opteio.py --start 2026-08-01 --end 2026-08-10
     python statdb_entrees_opteio.py --site-id 21 --last 30   # site par défaut
+    python statdb_entrees_opteio.py --last 7 --table stat_entrees      # une seule table
+    python statdb_entrees_opteio.py --last 7 --table stat_entrees_det
 
 Idempotence : les deux tables peuvent être rechargées sur une période déjà
 traitée sans créer de doublons, mais pas de la même façon :
@@ -63,6 +65,10 @@ def parse_args():
     parser.add_argument("--start", help="date de début AAAA-MM-JJ")
     parser.add_argument("--end", help="date de fin AAAA-MM-JJ (défaut : hier)")
     parser.add_argument("--last", type=int, metavar="N", help="raccourci : les N derniers jours")
+    parser.add_argument(
+        "--table", choices=("stat_entrees", "stat_entrees_det"),
+        help="ne peupler qu'une seule des deux tables (défaut : les deux)",
+    )
     args = parser.parse_args()
 
     end = date.fromisoformat(args.end) if args.end else date.today() - timedelta(days=1)
@@ -74,7 +80,7 @@ def parse_args():
         parser.error("précise --start AAAA-MM-JJ (ou --last N)")
     if start > end:
         parser.error("la date de début est postérieure à la date de fin")
-    return args.site_id, start, end
+    return args.site_id, start, end, args.table
 
 
 def aggregate_by_hour(rows):
@@ -130,45 +136,51 @@ def build_detail_rows(site_id, rows):
     return list(totals.values())
 
 
-site_id, start, end = parse_args()
+site_id, start, end, only_table = parse_args()
+want_stat_entrees = only_table in (None, "stat_entrees")
+want_stat_entrees_det = only_table in (None, "stat_entrees_det")
 
 log = Log()
 log.add_info('Lancement')
-log.add_info(f"site_id={site_id} période={start}..{end}")
+log.add_info(f"site_id={site_id} période={start}..{end} table={only_table or 'les deux'}")
 
 client = OpteioClient()
 data = client.fetch_period(site_id, start, end, datasets=["inout"])
 rows = data.get("inout", [])
 log.add_info(f"{len(rows)} lignes 'inout' récupérées depuis l'API Opteio")
 
-totals = aggregate_by_hour(rows)
-log.add_info(f"{len(totals)} heures agrégées")
+totals = aggregate_by_hour(rows) if want_stat_entrees else {}
+if want_stat_entrees:
+    log.add_info(f"{len(totals)} heures agrégées")
 
-detail_rows = build_detail_rows(site_id, rows)
-log.add_info(f"{len(detail_rows)} lignes de détail (capteur/minute)")
+detail_rows = build_detail_rows(site_id, rows) if want_stat_entrees_det else []
+if want_stat_entrees_det:
+    log.add_info(f"{len(detail_rows)} lignes de détail (capteur/minute)")
 
 engine = DbConn().create_engine()
 range_start = datetime.combine(start, datetime.min.time())
 range_end = datetime.combine(end + timedelta(days=1), datetime.min.time())
 
 with engine.begin() as conn:
-    # stat_entrees n'a aucune contrainte d'unicité : on purge la période avant
-    # de réinsérer, pour rester idempotent si le script est relancé.
-    deleted = conn.execute(
-        text("DELETE FROM statdb.stat_entrees WHERE datetime >= :start AND datetime < :end"),
-        {"start": range_start, "end": range_end},
-    )
-    log.add_info(f"{deleted.rowcount} anciennes lignes supprimées sur la période (stat_entrees)")
-
-    if totals:
-        conn.execute(
-            text("INSERT INTO statdb.stat_entrees (datetime, entrees) VALUES (:datetime, :entrees)"),
-            [{"datetime": dt, "entrees": n} for dt, n in totals.items()],
+    if want_stat_entrees:
+        # stat_entrees n'a aucune contrainte d'unicité : on purge la période
+        # avant de réinsérer, pour rester idempotent si le script est relancé.
+        deleted = conn.execute(
+            text("DELETE FROM statdb.stat_entrees WHERE datetime >= :start AND datetime < :end"),
+            {"start": range_start, "end": range_end},
         )
+        log.add_info(f"{deleted.rowcount} anciennes lignes supprimées sur la période (stat_entrees)")
 
-    # stat_entrees_det a une contrainte d'unicité (site_id, capteur, datetime) :
-    # upsert plutôt que purge/réinsertion, plus adapté à son volume.
-    if detail_rows:
+        if totals:
+            conn.execute(
+                text("INSERT INTO statdb.stat_entrees (datetime, entrees) VALUES (:datetime, :entrees)"),
+                [{"datetime": dt, "entrees": n} for dt, n in totals.items()],
+            )
+
+    if want_stat_entrees_det and detail_rows:
+        # stat_entrees_det a une contrainte d'unicité (site_id, capteur,
+        # datetime) : upsert plutôt que purge/réinsertion, plus adapté à son
+        # volume.
         conn.execute(
             text(
                 """
