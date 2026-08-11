@@ -3,10 +3,36 @@ database:
     db: toto
     user: toto
     pwd: toto
-elasticsearch:
-    node: http://localhost:9200
 dir_log:
     toto
 opteio:
     login: toto
     password: toto
+
+
+---
+database:
+    db: toto
+    user: toto
+    pwd: toto
+webservice:
+  base: https://toto
+  user: toto
+  pwd: toto
+opteio:
+    login: toto
+    password: toto
+salt: toto
+dir_log: /home/kibini/kibini2/log
+dir_data: /home/kibini/kibini2/data
+dir_webdav: /home/kibini/kibini_prod/data/dumps_koha/
+smtp: 0.0.0.0
+acquereurs:
+  - borrowernumber: 0
+    nom: toto
+    courriel: toto
+  - borrowernumber: 1
+    nom: titi
+    courriel: titi
+stat_sugg:
+  0: Toto
