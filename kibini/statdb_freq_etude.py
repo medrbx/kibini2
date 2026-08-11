@@ -84,10 +84,10 @@ def mod_entrance_adding_data(engine):
 
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 
 engine = DbConn().create_engine()
 nb_cardnumbers, nb_lignes_maj = mod_entrance_adding_data(engine)
 
 log.add_info(f"{nb_cardnumbers} cardnumbers examinés, {nb_lignes_maj} lignes mises à jour")
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")

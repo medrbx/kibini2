@@ -240,7 +240,7 @@ def parse_args():
 since = parse_args()
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 log.add_info(f"depuis : {since}")
 
 engine = DbConn().create_engine()
@@ -268,4 +268,4 @@ for itemnumber in itemnumbers:
         log.add_info(f"itemnumber={itemnumber} introuvable dans koha_prod (ignoré)")
 
 log.add_info(f"{nb_inserted} lignes ajoutées, {nb_updated} lignes mises à jour, {nb_skipped} ignorées")
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")

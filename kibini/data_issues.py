@@ -7,7 +7,7 @@ from kiblib.utils.log import Log
 from kiblib.pret import Pret
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 
 date = get_date_and_time('yesterday')
 print(date)

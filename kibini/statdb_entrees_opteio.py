@@ -154,7 +154,7 @@ want_stat_entrees = only_table in (None, "stat_entrees")
 want_stat_entrees_det = only_table in (None, "stat_entrees_det")
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 log.add_info(f"site_id={site_id} période={start}..{end} table={only_table or 'les deux'}")
 
 client = OpteioClient()
@@ -208,4 +208,4 @@ with engine.begin() as conn:
         )
 
 log.add_info(f"{len(totals)} lignes insérées (stat_entrees), {len(detail_rows)} lignes upsertées (stat_entrees_det)")
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")

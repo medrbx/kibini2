@@ -7,7 +7,7 @@ from kiblib.utils.log import Log
 from kiblib.pret import Pret
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 
 date = get_date_and_time('yesterday')
 
@@ -180,4 +180,4 @@ log.add_info(f"{nb_lignes} mises à jour")
 #pret = Pret(con=db_conn)
 #pret.ano_pret_statdb_data()
 
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")

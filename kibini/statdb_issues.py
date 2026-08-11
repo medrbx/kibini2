@@ -78,7 +78,7 @@ start_date, end_date = parse_args()
 params = {"start_date": start_date, "end_date": end_date}
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 log.add_info(f"période traitée : du {start_date} au {end_date - timedelta(days=1)} inclus")
 
 engine = DbConn().create_engine()
@@ -194,4 +194,4 @@ run(
     params,
 )
 
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")

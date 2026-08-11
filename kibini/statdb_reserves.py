@@ -305,7 +305,7 @@ day = parse_args()
 day_end = day + timedelta(days=1)
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 log.add_info(f"date traitée : {day}")
 
 engine = DbConn().create_engine()
@@ -336,4 +336,4 @@ for reserve_id in reserve_ids:
         update_statut_loc_reservation(conn, reserve_id, statut, loc)
     log.add_info(f"reserve_id={reserve_id} statut={statut} espace={loc}")
 
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")

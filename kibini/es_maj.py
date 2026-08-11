@@ -6,7 +6,7 @@ from kiblib.utils.log import Log
 from kiblib.pret import Pret
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 
 db_conn = DbConn().create_db_con()
 
@@ -73,4 +73,4 @@ for df in pd.read_sql(query, con=db_conn, chunksize=chunksize):
 
 log.add_info(f"{nb_lignes} ajoutées ou mises à jour")
 
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")

@@ -12,7 +12,7 @@ from kiblib.utils.db import DbConn
 from kiblib.utils.log import Log
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 
 db_conf = Config().get_config_database()
 user = db_conf["user"]
@@ -68,4 +68,4 @@ with engine.begin() as conn:
         )
     )
 
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")

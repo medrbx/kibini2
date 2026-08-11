@@ -1,5 +1,7 @@
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from kiblib.utils.conf import Config
 from kiblib.utils.date import get_date_and_time
@@ -16,6 +18,7 @@ class Log():
                     filemode='a')
         logger = logging.getLogger()
         self.logger = logger
-        
+        self.script_name = Path(sys.argv[0]).name
+
     def add_info(self, text):
         self.logger.info(text)

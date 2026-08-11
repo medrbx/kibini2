@@ -99,7 +99,7 @@ def fetch_dates_by_borrower(conn, table, date_col, since, until, branch=None):
 
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 
 engine = DbConn().create_engine()
 with engine.begin() as conn:
@@ -144,4 +144,4 @@ with engine.begin() as conn:
     conn.execute(INSERT_QUERY, rows_to_insert)
 
 log.add_info(f"{len(rows_to_insert)} adhérents ajoutés")
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")

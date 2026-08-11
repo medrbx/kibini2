@@ -105,7 +105,7 @@ def process_row(conn, row):
 
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 
 engine = DbConn().create_engine()
 
@@ -123,4 +123,4 @@ with open(CSV_PATH, newline="", encoding="utf-8") as f:
             log.add_info(f"koha_userid={row['koha_userid']} introuvable dans koha_prod.borrowers (ignoré)")
 
 log.add_info(f"{nb_inserted} lignes ajoutées, {nb_skipped} ignorées")
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")

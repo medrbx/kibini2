@@ -9,7 +9,7 @@ from kiblib.utils.date import get_date_and_time
 from kiblib.utils.log import Log
 
 log = Log()
-log.add_info('Lancement')
+log.add_info(f'Lancement {log.script_name}')
 
 db_conf = Config().get_config_database()
 user = db_conf["user"]
@@ -34,4 +34,4 @@ if mysqldump_proc.returncode != 0:
     raise subprocess.CalledProcessError(mysqldump_proc.returncode, mysqldump_proc.args)
 
 log.add_info(f"sauvegarde écrite : {backup_file}")
-log.add_info("Fin traitement\n\n")
+log.add_info(f"Fin traitement {log.script_name}\n\n")
