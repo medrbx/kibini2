@@ -7,3 +7,6 @@ elasticsearch:
     node: http://localhost:9200
 dir_log:
     toto
+opteio:
+    login: toto
+    password: toto
