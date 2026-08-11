@@ -3,18 +3,6 @@ database:
     db: toto
     user: toto
     pwd: toto
-dir_log:
-    toto
-opteio:
-    login: toto
-    password: toto
-
-
----
-database:
-    db: toto
-    user: toto
-    pwd: toto
 webservice:
   base: https://toto
   user: toto
