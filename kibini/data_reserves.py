@@ -250,6 +250,7 @@ def reserve_issue_date(engine):
             )
         ).mappings().all()
 
+    nb_trouves = 0
     for res in rows:
         with engine.begin() as conn:
             issuedate = conn.execute(
@@ -284,10 +285,12 @@ def reserve_issue_date(engine):
                     "reserve_id": res["reserve_id"],
                 },
             )
-        log.add_info(
-            f"reserve_issue_date reserve_id={res['reserve_id']} "
-            f"issuedate={issuedate} waiting_duration={waiting_duration}"
-        )
+        if issuedate:
+            nb_trouves += 1
+    log.add_info(
+        f"reserve_issue_date : {len(rows)} réservations traitées, "
+        f"{nb_trouves} issuedate trouvées"
+    )
 
 
 def parse_args():
@@ -329,11 +332,15 @@ with engine.begin() as conn:
     reserve_ids = new_reserve_ids(conn, day)
 log.add_info(f"{len(reserve_ids)} nouvelles réservations à qualifier")
 
+nb_par_statut = {}
 for reserve_id in reserve_ids:
     with engine.begin() as conn:
         branch, biblionumber = reserve_infos(conn, reserve_id)
         statut, loc = statut_reservation(conn, branch, biblionumber)
         update_statut_loc_reservation(conn, reserve_id, statut, loc)
-    log.add_info(f"reserve_id={reserve_id} statut={statut} espace={loc}")
+    nb_par_statut[statut] = nb_par_statut.get(statut, 0) + 1
+if reserve_ids:
+    detail = ", ".join(f"{statut}={n}" for statut, n in sorted(nb_par_statut.items()))
+    log.add_info(f"réservations qualifiées : {detail}")
 
 log.add_info(f"Fin traitement {log.script_name}\n\n")
