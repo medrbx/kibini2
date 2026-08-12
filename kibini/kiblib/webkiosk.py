@@ -3,7 +3,6 @@ import numpy as np
 import datetime
 
 from kiblib.adherent import Adherent
-from kiblib.utils.es import Pd2Es
 from kiblib.utils.db import DbConn
 from kiblib.utils.code2libelle import Code2Libelle
 from kiblib.utils.date import get_date_and_time, dfcol_split_datetime
@@ -193,10 +192,3 @@ class Webkiosk(Adherent):
         cur = con.cursor()
         cur.execute(query)
         con.commit()
-
-    def add_es_webkiosk_data(self):
-        if 'session_mode' in self.df:
-            pd2es = Pd2Es()
-            pd2es.es_write(self.webkiosk_es_data, "webkiosk2020", "sessions", uid_name='session_id')
-        else:
-            print("session_mode n'est pas renseigné")

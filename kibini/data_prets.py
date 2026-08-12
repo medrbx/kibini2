@@ -65,7 +65,7 @@ for df in pd.read_sql(query, params={date}, con=db_conn, chunksize=chunksize):
         pret = Pret(df=df, con=db_conn, c2l=c2l.dict_codes_lib)
         pret.get_pret_statdb_data()
         pret.get_pret_statdb_data_columns()
-        pret.add_statdb_pret_data('insert')
+        pret.add_statdb_pret_data()
         nb_lignes = nb_lignes + len(df.index)
 
 log.add_info(f"{nb_lignes} ajoutées")
@@ -117,7 +117,7 @@ for df in pd.read_sql(query, params={date}, con=db_conn, chunksize=chunksize):
         pret = Pret(df=df, con=db_conn, c2l=c2l.dict_codes_lib)
         pret.get_pret_statdb_data()
         pret.get_pret_statdb_data_columns()
-        pret.add_statdb_pret_data('insert')
+        pret.add_statdb_pret_data()
         nb_lignes = nb_lignes + len(df.index)
 
 log.add_info(f"{nb_lignes} ajoutées")
@@ -169,7 +169,7 @@ for df in pd.read_sql(query, params=(date, date), con=db_conn, chunksize=chunksi
         pret = Pret(df=df, con=db_conn, c2l=c2l.dict_codes_lib)
         pret.get_pret_statdb_data()
         pret.get_pret_statdb_data_columns()
-        pret.add_statdb_pret_data('update')
+        pret.add_statdb_pret_data()
         nb_lignes = nb_lignes + len(df.index)
 
 log.add_info(f"{nb_lignes} mises à jour")

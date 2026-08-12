@@ -4,7 +4,6 @@ import datetime
 
 from kiblib.adherent import Adherent
 from kiblib.document import Document
-from kiblib.utils.es import Pd2Es
 from kiblib.utils.db import DbConn
 from kiblib.utils.code2libelle import Code2Libelle
 from kiblib.utils.date import get_date_and_time, dfcol_split_datetime
@@ -421,55 +420,48 @@ class Pret(Adherent, Document):
                 columns_to_keep.append(c)
         self.pret_statdb_data = self.df[columns_to_keep]
 
-    def add_statdb_pret_data(self, todo):
-        to_sql_conn = DbConn().create_engine()
-        if todo == 'insert':
-            self.pret_statdb_data.to_sql(self.statdb_pret_table, con=to_sql_conn, if_exists='append', index=False)
-        elif todo == 'update':
-            table_tmp = self.statdb_pret_table + "_tmp"
-            self.pret_statdb_data.to_sql(table_tmp, con=to_sql_conn, if_exists='replace', index=False)
-            query = """
-                UPDATE $table p
-                JOIN $table_tmp t ON p.pret_koha_id = t.pret_koha_id
-                SET
-                    -- p.pret_date_pret = t.pret_date_pret,
-                    p.pret_date_retour_effectif = t.pret_date_retour_effectif,
-                    p.pret_date_retour_prevue = t.pret_date_retour_prevue,
-                    p.pret_nb_renouvellement = t.pret_nb_renouvellement,
-                    -- p.pret_site_pret_code = t.pret_site_pret_code,
-                    -- p.pret_bus_arret_code = t.pret_bus_arret_code,
-                    -- p.pret_site_retour_code = t.pret_site_retour_code, -- colonne qui n'existe pas
-                    -- p.adh_id = t.adh_id,
-                    -- p.adh_sexe_code = t.adh_sexe_code,
-                    -- p.adh_age_code = t.adh_age_code,
-                    p.adh_geo_ville = t.adh_geo_ville,
-                    p.adh_geo_rbx_iris_code = t.adh_geo_rbx_iris_code,
-                    -- p.adh_inscription_carte_code = t.adh_inscription_carte_code,
-                    -- p.adh_inscription_site_code = t.adh_inscription_site_code,
-                    -- p.adh_inscription_carte_personnalite_code = t.adh_inscription_carte_personnalite_code,
-                    -- p.adh_inscription_nb_annees_adhesion = t.adh_inscription_nb_annees_adhesion,
-                    -- p.adh_inscription_attribut_action_code = t.adh_inscription_attribut_action_code,
-                    -- p.adh_inscription_attribut_bus_code = t.adh_inscription_attribut_bus_code,
-                    -- p.adh_inscription_attribut_collect_code = t.adh_inscription_attribut_collect_code,
-                    -- p.adh_inscription_attribut_pcs_code = t.adh_inscription_attribut_pcs_code,
-                    -- p.doc_biblio_id = t.doc_biblio_id,
-                    -- p.doc_biblio_titre = t.doc_biblio_titre,
-                    -- p.doc_biblio_support_code = t.doc_biblio_support_code,
-                    -- p.doc_biblio_annee_publication = t.doc_biblio_annee_publication,
-                    -- p.doc_item_id = t.doc_item_id,
-                    -- p.doc_item_code_barre = t.doc_item_code_barre,
-                    -- p.doc_item_collection_ccode = t.doc_item_collection_ccode,
-                    -- p.doc_item_site_detenteur_code = t.doc_item_site_detenteur_code,
-                    -- p.doc_item_localisation_code = t.doc_item_localisation_code,
-                    -- p.doc_item_cote = t.doc_item_cote,
-                    p.doc_item_date_creation = t.doc_item_date_creation
+    def add_statdb_pret_data(self):
+        """
+        Upsert idempotent sur pret_koha_id (UNIQUE KEY stat_prets_UN côté table) :
+        qu'une ligne soit vue pour la première fois ou déjà présente (ex. script
+        relancé, ou prêt vu à la fois par 'issues' et 'old_issues'), l'insertion
+        ne plante jamais et ne duplique jamais.
 
-            """
-            query = query.replace("$table", self.statdb_pret_table)
-            con = DbConn().create_db_con()
-            cur = con.cursor()
-            cur.execute(query)
-            con.commit()
+        Sur une ligne déjà existante, seuls les champs qui évoluent réellement
+        avec la vie du prêt (retour, renouvellement, quelques champs adhérent)
+        sont réécrits : on ne veut pas que l'état "au moment du prêt" dérive
+        rétroactivement au fil des relances.
+        """
+        to_sql_conn = DbConn().create_engine()
+        table_tmp = self.statdb_pret_table + "_tmp"
+        self.pret_statdb_data.to_sql(table_tmp, con=to_sql_conn, if_exists='replace', index=False)
+
+        cols = list(self.pret_statdb_data.columns)
+        cols_sql = ", ".join(f"`{c}`" for c in cols)
+
+        updatable_cols = [c for c in [
+            'pret_date_retour_effectif',
+            'pret_date_retour_prevue',
+            'pret_nb_renouvellement',
+            'adh_geo_ville',
+            'adh_geo_rbx_iris_code',
+            'doc_item_date_creation',
+        ] if c in cols]
+        if updatable_cols:
+            update_sql = ", ".join(
+                f"`{c}` = `{table_tmp}`.`{c}`" for c in updatable_cols)
+        else:
+            update_sql = "`pret_koha_id` = `{0}`.`pret_koha_id`".format(table_tmp)
+
+        query = f"""
+            INSERT INTO `{self.statdb_pret_table}` ({cols_sql})
+            SELECT {cols_sql} FROM `{table_tmp}`
+            ON DUPLICATE KEY UPDATE {update_sql}
+        """
+        con = DbConn().create_db_con()
+        cur = con.cursor()
+        cur.execute(query)
+        con.commit()
 
     def ano_pret_statdb_data(self):
         query= """
@@ -489,7 +481,3 @@ class Pret(Adherent, Document):
             if c in self.df:
                 columns_to_keep.append(c)
         self.pret_es_data = self.df[columns_to_keep]
-
-    def add_es_pret_data(self):
-        pd2es = Pd2Es()
-        pd2es.es_write(self.pret_es_data, "prets2020", "prets", uid_name='pret_id')

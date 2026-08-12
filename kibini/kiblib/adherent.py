@@ -161,22 +161,18 @@ class Adherent():
             birth_year = self.df['dateofbirth'].astype(
                 'datetime64[ns]').dt.year
             self.df['adh_age'] = now - birth_year
-            if self.df['adh_age'].notna:
-                self.df['adh_age'] = "a" + self.df['adh_age'].astype('str').str.extract(pat = '([0-9]*)\.')
-                self.df['adh_age_code'] = self.df['adh_age'].apply(
-                    lambda x: self.c2l['age'][x]['acode'] if x in self.c2l['age'] else 'NC')
-            else:
-                self.df['adh_age_code'] = 'NC'
+            self.df['adh_age'] = self.df['adh_age'].apply(
+                lambda x: f"a{int(x)}" if pd.notna(x) else np.nan)
+            self.df['adh_age_code'] = self.df['adh_age'].apply(
+                lambda x: self.c2l['age'][x]['acode'] if x in self.c2l['age'] else 'NC')
             self.df.loc[self.df['adh_inscription_carte_personnalite_code'] == 'I', 'adh_age_code'] = 'NP'
 
     def get_age_code_by_age(self):
         if 'adh_age' in self.df and 'adh_age_code' not in self.df:
-            if self.df['adh_age'].notna:
-                self.df['adh_age'] = "a" + self.df['adh_age'].astype('str').str.extract(pat = '([0-9]*)\.')
-                self.df['adh_age_code'] = self.df['adh_age'].apply(
-                    lambda x: self.c2l['age'][x]['acode'] if x in self.c2l['age'] else 'NC')
-            else:
-                self.df['adh_age_code'] = 'NC'
+            self.df['adh_age'] = self.df['adh_age'].apply(
+                lambda x: f"a{int(x)}" if pd.notna(x) else np.nan)
+            self.df['adh_age_code'] = self.df['adh_age'].apply(
+                lambda x: self.c2l['age'][x]['acode'] if x in self.c2l['age'] else 'NC')
             self.df.loc[self.df['adh_inscription_carte_personnalite_code'] == 'I', 'adh_age_code'] = 'NP'
 
     def get_age_lib1(self):

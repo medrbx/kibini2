@@ -19,8 +19,8 @@ user = db_conf["user"]
 pwd = db_conf["pwd"]
 
 date = get_date_and_time("today YYYYMMDD")
-data_dir = Path(__file__).resolve().parent.parent / "data" / "dumps_koha"
-dump_source_dir = data_dir / "dumps"
+data_dir = Path(__file__).resolve().parent.parent / "data"
+dump_source_dir = data_dir / "dumps_koha" / "dumps"
 gz_file = data_dir / f"koha_prod_{date}.sql.gz"
 sql_file = data_dir / f"koha_prod_{date}.sql"
 
