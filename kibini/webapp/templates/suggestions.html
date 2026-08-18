@@ -53,7 +53,7 @@
                         {% if suggestion.copyrightdate %}<br>date de publication : {{ suggestion.copyrightdate }}{% endif %}
                         {% if suggestion.isbn %}<br>isbn : {{ suggestion.isbn }} {% endif %}
                     </td>
-                    <td><a href="https://koha.ville-roubaix.fr/cgi-bin/koha/members/moremember.pl?borrowernumber={{ suggestion.borrnumsuggestedby }}">{{ suggestion.surnamesuggestedby }} {{ suggestion.firstnamesuggestedby }}</a></td>
+                    <td><a href="https://koha.ville-roubaix.fr/cgi-bin/koha/members/moremember.pl?borrowernumber={{ suggestion.suggestedby }}">{{ suggestion.surnamesuggestedby }} {{ suggestion.firstnamesuggestedby }}</a></td>
                     <td>{{ suggestion.note }}</td>
                     <td>{{ suggestion.branchcode }}</td>
                 </tr>
