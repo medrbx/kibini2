@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+    <title>{{ appname }}</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/rbx.css') }}"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.bootstrap.min.css') }}"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/jquery-ui.css') }}">
+
+    <script src="{{ url_for('static', filename='javascripts/jquery.js') }}"></script>
+    <script src="{{ url_for('static', filename='javascripts/bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='javascripts/d3.js') }}"></script>
+    <script src="{{ url_for('static', filename='javascripts/queue.v1.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='javascripts/topojson.js') }}"></script>
+    <script src="{{ url_for('static', filename='javascripts/scripts.js') }}"></script>
+    <script src="{{ url_for('static', filename='javascripts/datatables.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='javascripts/dataTables.bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='javascripts/jquery-ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='javascripts/datepicker-fr.js') }}"></script>
+
+  </head>
+
+  <body>
+
+    {% include 'includes/navbar.html' %}
+
+    <div class="container-fluid">
+      <div class="row">
+
+        {% block content %}{% endblock %}
+
+      </div>
+    </div>
+
+  </body>
+</html>

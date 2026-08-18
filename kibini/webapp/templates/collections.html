@@ -1,0 +1,66 @@
+{% extends 'layout.html' %}
+{% macro rows(entries, level=1) %}
+    {% for libelle, val in entries.items() %}
+    <tr class="n{{ level }}">
+        <td class="col1" style="padding-left:{{ (level - 1) * 30 }}px;">{{ val.libelle }}</td>
+        <td class="ex" align="right">{{ val.nbExemplaires }}</td>
+        <td align="right">{{ val.nbExemplairesEmpruntables }}</td>
+        <td align="right">{{ val.nbPrets }}</td>
+        <td align="right">{{ val.nbDocPrets }}</td>
+        <td align="right">{{ val.txRotation }}</td>
+        <td align="right">{{ val.txFondsActif }} %</td>
+        <td align="right">{{ val.nbEmprUniques }}</td>
+    </tr>
+    {% if val.sous_collections and level < 5 %}
+        {{ rows(val.sous_collections, level + 1) }}
+    {% endif %}
+    {% endfor %}
+{% endmacro %}
+{% block content %}
+    {% include 'includes/sidebar.html' %}
+    <div class="col-sm-9">
+
+        <div class="panel panel-primary">
+                <div class="panel-heading">
+                    <strong>
+                    {{ label1 }}<span>   </span><i class="glyphicon glyphicon-chevron-right"></i><span>   </span>{{ label2 }}<span>   </span><i class="glyphicon glyphicon-chevron-right"></i><span>   </span>{{ label3 }}
+                    </strong>
+                </div>
+           </div>
+
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th class="col1">Collections</th>
+                    <th align="right" width="60px">Exemplaires</th>
+                    <th align="right" width="60px">Exemplaires empruntables</th>
+                    <th align="right" vertical-align="middle" width="60px">Prêts</th>
+                    <th align="right" width="60px">Documents distincts empruntés</th>
+                    <th align="right" width="60px">Tx rotation</th>
+                    <th align="right" width="60px">Tx fonds actif</th>
+                    <th align="right" width="60px">Emprunteurs uniques</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {{ rows(indicateurs) }}
+            </tbody>
+        </table>
+    </div>
+
+
+    <script type="text/javascript">
+/* On supprime les lignes vides du tableau */
+for ( j = 0 ; j < 6 ; j++ ) {
+    var td = document.getElementsByClassName("ex") ;
+    var i ;
+    for ( i = 0 ; i < td.length ; i++ ) {
+        if (td[i].textContent == "" ) {
+            var tr = td[i].parentElement ;
+            tr.parentNode.removeChild(tr);
+        }
+    }
+}
+    </script>
+
+{% endblock %}

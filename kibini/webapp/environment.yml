@@ -1,0 +1,22 @@
+# Environnement conda dédié au site web (isolé de l'env "kibini" utilisé par
+# le pipeline de notebooks/scripts cron : Flask a besoin de Jinja2 >= 3.1, ce
+# qui casse jupyter nbconvert dans l'env "kibini", encore sur Jinja2 3.0.2).
+#
+# Création :
+#   conda create -y -n kibini-web python=3.8
+#   conda activate kibini-web
+#   pip install -r <(python -c "import yaml,sys; [print(p) for p in yaml.safe_load(open('kibini2/kibini/webapp/environment.yml'))['dependencies'][-1]['pip']]")
+# ou plus simplement :
+#   conda activate kibini-web && pip install flask sqlalchemy pymysql mysql-connector-python pyyaml requests
+name: kibini-web
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - pip:
+    - flask
+    - sqlalchemy
+    - pymysql
+    - mysql-connector-python
+    - pyyaml
+    - requests
