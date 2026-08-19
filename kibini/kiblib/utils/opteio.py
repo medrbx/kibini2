@@ -22,6 +22,29 @@ API_BASE = "https://api.opteio.com"
 MAX_DAYS_PER_REQUEST = 100  # limite imposée par l'API sur /sensor-data/period
 DATASETS = ["inout", "presence_data", "worked_hours", "site_data", "parasitic_counts"]
 
+# Marqueurs observés dans le corps d'une réponse 401 quand l'API Opteio renvoie
+# en réalité une erreur d'infrastructure interne (ex: {"message":"connect ETIMEDOUT"})
+# plutôt qu'un vrai refus d'identifiants.
+_TRANSIENT_ERROR_MARKERS = ("ETIMEDOUT", "ECONNREFUSED", "ECONNRESET", "EHOSTUNREACH", "ENOTFOUND")
+
+
+def _diagnose_http_error(code, path, detail):
+    """Ajoute un indice lisible quand un 401 sur /users/authenticate cache
+    en fait un incident côté Opteio plutôt qu'un problème d'identifiants."""
+    if code != 401 or path != "/users/authenticate":
+        return ""
+    if any(marker in detail for marker in _TRANSIENT_ERROR_MARKERS):
+        return (
+            "\n-> HTTP 401 mais le message ne ressemble pas à un refus d'identifiants : "
+            "c'est probablement un incident d'infrastructure côté Opteio (leur API n'arrive "
+            "pas à joindre un service interne). Réessayer plus tard ; ce n'est pas la peine "
+            "de vérifier login/password sauf si l'erreur persiste sans ce type de message."
+        )
+    return (
+        "\n-> HTTP 401 sur l'authentification : vérifier 'opteio.login'/'opteio.password' "
+        "dans kibini_conf.yml."
+    )
+
 
 def daterange_chunks(start, end, max_days=MAX_DAYS_PER_REQUEST):
     """Découpe [start, end] en tranches <= max_days (limite API)."""
@@ -94,7 +117,8 @@ class OpteioClient:
                 auth_header = resp.headers.get("Authorization")
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")
-            raise RuntimeError(f"API {method} {path} -> HTTP {exc.code}\n{detail[:500]}") from exc
+            hint = _diagnose_http_error(exc.code, path, detail)
+            raise RuntimeError(f"API {method} {path} -> HTTP {exc.code}\n{detail[:500]}{hint}") from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"Connexion impossible à l'API Opteio : {exc.reason}") from exc
 

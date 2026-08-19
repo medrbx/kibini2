@@ -1,0 +1,41 @@
+{% extends 'layout.html' %}
+{% block content %}
+    {% include 'includes/sidebar.html' %}
+    <div class="col-sm-9">
+
+        <div class="panel panel-primary">
+                <div class="panel-heading">
+                    <strong>
+                    {{ label1 }}<span>   </span><i class="glyphicon glyphicon-chevron-right"></i><span>   </span>{{ label2 }}<span>   </span><i class="glyphicon glyphicon-chevron-right"></i><span>   </span>{{ label3 }}
+                    </strong>
+                </div>
+        </div>
+
+        {% for annee, file in [
+            ('2025', file_2025), ('2024', file_2024), ('2023', file_2023),
+            ('2022', file_2022), ('2021', file_2021), ('2020', file_2020),
+            ('2019', file_2019), ('2018', file_2018), ('2017', file_2017),
+            ('2016', file_2016)
+        ] %}
+        <div class="panel panel-info">
+            <div class="panel-heading">
+                <h3 class="panel-title">Indicateurs au 31 décembre {{ annee }}</h3>
+            </div>
+            <div class="panel-body">
+                <div class="col-sm-9">
+                    <form method="get" action="{{ file }}">
+                        <div class="form-group">
+                        <button class="btn btn-sm btn-primary" name="submit" type="submit"><span class="glyphicon glyphicon-save"></span> Télécharger le fichier de synthèse</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+    </div>
+
+    <script type="text/javascript">
+    </script>
+
+{% endblock %}

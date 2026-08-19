@@ -1,0 +1,24 @@
+{% extends 'layout.html' %}
+{% block content %}
+        <div id="sidebar">
+            {% include 'includes/sidebar.html' %}
+        </div>
+        <div class="col-sm-9">
+            <div class="panel panel-primary">
+
+                <div class="panel-heading">
+                    <strong>
+                    {{ label1 }}<span>   </span><i class="glyphicon glyphicon-chevron-right"></i><span>   </span>{{ label2 }}<span>   </span><i class="glyphicon glyphicon-chevron-right"></i><span>   </span>{{ label3 }}
+                    </strong>
+                </div>
+                <div class="panel-body">
+
+                    <div class="embed-responsive embed-responsive-4by3" style="padding-bottom: {{ dashboard.height }};">
+                        <iframe class="embed-responsive-item" src="{{ dashboard.src }}"></iframe>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+{% endblock %}
