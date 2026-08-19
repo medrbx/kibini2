@@ -43,7 +43,7 @@ class AECS():
     
         sheets2keep = ['Baptiste','Bruno',
                        'Céline','Esther',
-                       'Gwen','Hélène',
+                       'Gwen','Gaëlle','Hélène',
                        'Inès','Laetitia C',
                        'Laetitia D','Mathilde M',
                        'Pascale','Zina'
@@ -347,7 +347,7 @@ class AECS():
                          #data_sheetname=None
                          keep_data_sheetname=None,
                          drop_data_sheetname=None,
-                         keep_columns=None):
+                         keep_values=None):
 
         
         
@@ -359,6 +359,9 @@ class AECS():
             
         if drop_data_sheetname is not None:
             self.stats = self.stats[~self.stats["index"].isin(drop_data_sheetname)]
+       
+        #if keep_values:
+        #   self.stats = self.stats[self.stats[list(keep_values.keys())].isin(list(keep_values.values()))]
             
             #self.stats = self.aecs[self.aecs["index"].isin(keep_data_sheetname)]
             #self.stats = self.stats.pivot_table(index=index,columns=columns,values=values,aggfunc=sum,margins=margins,margins_name=margins_name)
@@ -368,6 +371,7 @@ class AECS():
         
         self.stats = self.stats.pivot_table(index=index,columns=columns,values=values,aggfunc=sum,margins=margins,margins_name=margins_name)
         return(self.stats)
+        
 
 """
 class AECS():
