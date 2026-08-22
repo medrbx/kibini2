@@ -147,6 +147,18 @@ DASHBOARDS = {
         "dashboard": {"src": "...", "height": "1200px"},
     },
 
+    # PARTIE 4 - Les Collectivités
+    "/collectivites/collections/prets": {
+        "label1": "Collectivités", "label2": "Collections", "label3": "Prêts",
+        "dashboard": {"src": "/static/data/notebook_kibini2_collectivites_evolution_prets.html", "height": "1400px"},
+    },
+
+    # PARTIE 5 - Les synthèses pluriannuelles de la Grand-Plage
+    "/grand-plage/syntheses/prets": {
+        "label1": "La Grand-Plage", "label2": "Synthèses", "label3": "Prêts",
+        "dashboard": {"src": "/static/data/notebook_kibini2_synthese_prets.html", "height": "1500px"},
+    },
+
 }
 
 # --------------------------------------------------------------------------
@@ -176,13 +188,6 @@ ARCHIVED_KIBANA_DASHBOARDS = {
             "height": "1300px",
         },
     },
-    "/collectivites/collections/prets": {
-        "label1": "Collectivités", "label2": "Collections", "label3": "Prêts",
-        "dashboard": {
-            "src": "http://129.1.0.237:5601/app/kibana#/dashboard/Pr%C3%AAts-Collectivit%C3%A9s?embed=true&_g=(refreshInterval:(display:Off,pause:!f,value:0),time:(from:now-1y,mode:relative,to:now))&_a=(filters:!(),options:(darkTheme:!f),panels:!((col:1,id:Nombre-de-pr%C3%AAts-par-collection,panelIndex:24,row:3,size_x:12,size_y:9,type:visualization),(col:1,id:Pr%C3%AAts-Collectivit%C3%A9s,panelIndex:28,row:1,size_x:6,size_y:2,type:visualization),(col:7,id:'Nombre-d!'emprunteurs-totaux-Collectivit%C3%A9s',panelIndex:29,row:1,size_x:6,size_y:2,type:visualization)),query:(query_string:(analyze_wildcard:!t,query:'doc_localisation:%20%22Magasin%20collectivit%C3%A9s%22')),title:'Pr%C3%AAts%20Collectivit%C3%A9s',uiState:())",
-            "height": "1400px",
-        },
-    },
     "/grand-plage/syntheses/inscrits": {
         "label1": "La Grand-Plage", "label2": "Synthèses", "label3": "Inscrits",
         "dashboard": {
@@ -195,13 +200,6 @@ ARCHIVED_KIBANA_DASHBOARDS = {
         "dashboard": {
             "src": "http://129.1.0.237:5601/app/kibana#/dashboard/AWHc5g3Ppw5wXLtt1uz6?embed=true&_g=(refreshInterval%3A(display%3AOff%2Cpause%3A!f%2Cvalue%3A0)%2Ctime%3A(from%3Anow-1y%2Fy%2Cmode%3Aquick%2Cto%3Anow-1y%2Fy))",
             "height": "1100px",
-        },
-    },
-    "/grand-plage/syntheses/prets": {
-        "label1": "La Grand-Plage", "label2": "Synthèses", "label3": "Prêts",
-        "dashboard": {
-            "src": "http://129.1.0.237:5601/app/kibana#/dashboard/AWHc8EI_pw5wXLtt1uz_?embed=true&_g=(refreshInterval%3A(display%3AOff%2Cpause%3A!f%2Cvalue%3A0)%2Ctime%3A(from%3Anow-1y%2Fy%2Cmode%3Aquick%2Cto%3Anow-1y%2Fy))",
-            "height": "1500px",
         },
     },
 }
