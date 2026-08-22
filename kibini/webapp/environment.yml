@@ -7,7 +7,7 @@
 #   conda activate kibini-web
 #   pip install -r <(python -c "import yaml,sys; [print(p) for p in yaml.safe_load(open('kibini2/kibini/webapp/environment.yml'))['dependencies'][-1]['pip']]")
 # ou plus simplement :
-#   conda activate kibini-web && pip install flask sqlalchemy pymysql mysql-connector-python pyyaml requests
+#   conda activate kibini-web && pip install flask sqlalchemy pymysql mysql-connector-python pyyaml requests gunicorn
 name: kibini-web
 channels:
   - defaults
@@ -20,3 +20,5 @@ dependencies:
     - mysql-connector-python
     - pyyaml
     - requests
+    # serveur WSGI pour la prod (dev : `flask run` suffit, voir README)
+    - gunicorn

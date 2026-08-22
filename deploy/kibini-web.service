@@ -1,0 +1,18 @@
+[Unit]
+Description=Kibini2 Flask webapp
+After=network.target
+
+[Service]
+User=kibini
+Group=kibini
+WorkingDirectory=/home/kibini/kibini2/kibini
+# adapter le chemin conda ci-dessous à celui réellement installé sur le serveur
+Environment="PATH=/home/kibini/miniconda3/envs/kibini-web/bin"
+ExecStart=/home/kibini/miniconda3/envs/kibini-web/bin/gunicorn \
+    --workers 3 \
+    --bind 127.0.0.1:1793 \
+    "webapp.app:create_app()"
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
