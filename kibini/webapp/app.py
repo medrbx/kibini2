@@ -31,7 +31,7 @@ def create_app():
 
     for path, page in DASHBOARDS.items():
         endpoint = f"dashboard{path}"
-        app.add_url_rule(path, endpoint, _kibana_view(page))
+        app.add_url_rule(path, endpoint, _kibana_view(page), strict_slashes=False)
 
     # PARTIE 5 - La poldoc de La Grand-Plage
 
