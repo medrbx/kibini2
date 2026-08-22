@@ -10,7 +10,7 @@ WorkingDirectory=/home/kibini/kibini2/kibini
 Environment="PATH=/home/kibini/miniconda3/envs/kibini-web/bin"
 ExecStart=/home/kibini/miniconda3/envs/kibini-web/bin/gunicorn \
     --workers 3 \
-    --bind 127.0.0.1:1793 \
+    --bind 0.0.0.0:1793 \
     "webapp.app:create_app()"
 Restart=on-failure
 
