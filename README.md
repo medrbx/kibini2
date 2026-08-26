@@ -29,9 +29,7 @@ kibini2/
 │   └── crontab_lanceur.sh     # point d'entrée cron, orchestre les data_*.py selon le jour
 ├── data/                     # données d'entrée/sortie locales (gitignoré, jamais vide en prod)
 │   ├── aecs/                  # tableaux de suivi AECS (Excel)
-│   ├── frequentation/          # relevés de fréquentation par espace (Excel)
-│   └── poldoc/                 # statistiques de collections annuelles (Excel) — copie dupliquée sous
-│                                 # webapp/static/data/poldoc/, c'est cette dernière qui est servie
+│   └── frequentation/          # relevés de fréquentation par espace (Excel)
 ├── log/                      # logs (cron, application) — non suivi par git
 ├── referentiels/             # fichiers de référence (communes/département/région, acquéreurs)
 ├── environment.yml           # environnement conda "kibini" (pipeline data + notebooks)
@@ -144,8 +142,3 @@ Séparation nécessaire : Flask exige Jinja2 ≥ 3.1, incompatible avec `jupyter
 | `stat_sugg` | mapping `borrowernumber → nom` (jeu de données plus large, historique) | scripts d'analyse ponctuels |
 
 Cette configuration est **par machine** (dev et prod ont chacune leur propre `kibini_conf.yml`, non synchronisé par git) — les identifiants ou hôtes peuvent différer entre les deux (ex. `webservice.base` doit être joignable depuis la machine, ce qui n'est pas le cas depuis toutes les machines de dev).
-
-## Ce qui n'est pas (encore) dans kibini2
-
-- La synchronisation Elasticsearch déclenchée par les formulaires action culturelle/coopération (existait côté Perl).
-- Certains tableaux de bord Kibana dont le serveur (`129.1.0.237:5601`) n'existe plus — conservés dans `ARCHIVED_KIBANA_DASHBOARDS` en attendant leur reconstruction en notebook.
