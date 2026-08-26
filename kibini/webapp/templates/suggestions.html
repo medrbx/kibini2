@@ -28,7 +28,7 @@
             <tbody>
                 {% for suggestion in suggestions %}
                 <tr>
-                    <td><p class="acquereur">{{ suggestion.firstnamemanagedby }}</p></td>
+                    <td><p class="acquereur">{{ suggestion.firstnamemanagedby or '' }}</p></td>
                     <td>
                         <form method="post" action="/suggestions/mod">
                             <input type="hidden" name="suggestionid" value="{{ suggestion.suggestionid }}">
