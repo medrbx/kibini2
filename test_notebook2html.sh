@@ -6,7 +6,7 @@ kibini2='/home/kibini/kibini2'
 kibini='/home/kibini/kibini_prod'
 
 # Execution et publication d'un notebook en particulier
-for filename in notebook_kibini2_collectivites_evolution_prets
+for filename in notebook_kibini2_med_quels_publics_action_culturelle notebook_kibini2_med_activite_hebdo
 
 
 do

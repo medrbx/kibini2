@@ -23,7 +23,7 @@ class AECS():
     Une classe pour manipuler les données des actions éducatives culturelles et sociales de la médiathèque.
     """
   
-    def __init__(self,dataset_timestamp,set_sll_columns=False):
+    def __init__(self,dataset_timestamp,set_sll_columns=False,bloc_info_geo=False):
         """
             Une méthode pour récupérer les données du tableau de suivi aecs.
             
@@ -241,6 +241,36 @@ class AECS():
                 self.aecs.loc[self.aecs["Type de public"]==key,
                              'H7 - Actions et services à destination de publics à besoins spécifiques'] = f'{letter}/ {value}'
 
+            
+        if bloc_info_geo:
+            
+            # Ouverture du fichier répertoriant les établissements publics de Roubaix
+            bpe = pd.read_excel("/home/kibini/kibini2/data/aecs/BPE2024_equipement.xlsx",sheet_name="BPE",converters={"Code IRIS":str})
+            
+            # On garde les colonnes intéressantes
+            bpe = bpe[["Nom Raison sociale de l'équipement","Type d'équipement","Code IRIS","Quartier historique","Secteur Mairie"]]
+            
+            # Filtre sur le type d'équipement pour garder les écoles
+            cat_ecoles = ["ÉCOLE MATERNELLE","ÉCOLE PRIMAIRE","ÉCOLE ÉLÉMENTAIRE"]
+            bpe_ecoles = bpe[bpe["Type d'équipement"].isin(cat_ecoles)]
+            
+            # Nb d'écoles par quartier
+            nb_ecoles_par_quartier = bpe_ecoles.groupby(["Quartier historique"])["Nom Raison sociale de l'équipement"].count().to_frame("Nb d'écoles")
+            
+            #bpe_ecoles = bpe_ecoles.merge(nb_ecoles_par_quartier,left_on="Quartier historique",right_on="Quartier historique",how="left")
+            #bpe_ecoles
+            
+            # Liste des équipements à partir du tableau aecs
+            equipements_aecs = pd.read_excel("/home/kibini/kibini2/data/aecs/listing_equipements_aecs_20260423_iris.xlsx",converters={"Iris":str})
+            
+            # Ajout des infos géo au listing des équipements aecs
+            bloc_info_geo = equipements_aecs.merge(bpe_ecoles,left_on="Iris",right_on="Code IRIS",how="left")
+            
+            # Refiltre sur les écoles
+            bloc_info_geo_ecoles = bloc_info_geo[bloc_info_geo["Type de structure"]=="Ecole"]
+            
+            # Fusion données géo avec données AECS
+            self.aecs = self.aecs.merge(bloc_info_geo_ecoles,left_on="Nom d'équipement",right_on="Nom d'équipement",how="left")
     
     def get_SLL_datas(self):        
         self.get_SLL_H1_PartenariatsAvecDesInstitutions()
