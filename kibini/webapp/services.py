@@ -279,14 +279,14 @@ _LISTE_TITRES = {
 # de chaque clé, comme le fait Perl.
 #
 # Les clés "d0azz" à "d4pzz" (réservations disponibles, hors quarantaine),
-# "t0azz" à "t4pzz" (en traitement) et "m0zzz"/"m4zzz" (mise de côté) ne sont
-# plus dans cette table : elles sont servies par les rapports consolidés
-# ci-dessous (_DISPO_PARAMS, _DISPO_BUS_PARAMS, _TRAIT_PARAMS,
-# _TRAIT_BUS_PARAMS, _MISECOTE_PARAMS).
+# "t0azz" à "t4pzz" (en traitement), "m0zzz"/"m4zzz" (mise de côté) et
+# "e0azz"/"e0pzz"/"e4zzz" (expirées, hors "annulées la veille" e0zzz qui reste
+# ici) ne sont plus dans cette table : elles sont servies par les rapports
+# consolidés ci-dessous (_DISPO_PARAMS, _DISPO_BUS_PARAMS, _TRAIT_PARAMS,
+# _TRAIT_BUS_PARAMS, _MISECOTE_PARAMS, _EXPIREES_PARAMS).
 _LISTE_RAPPORTS = {
     "d5azz": "205", "d5pzz": "206",
-    "e0azz": "134", "e0pzz": "198",
-    "e4zzz": "164", "e0zzz": "177",
+    "e0zzz": "177",
     "p_et0_s1": "152", "p_et1_s1": "153", "p_et2_s1": "154", "p_et3_s1": "155",
     "aazzz": "207", "bbzzz": "208", "tzzzz": "307",
 }
@@ -361,12 +361,25 @@ _MISECOTE_PARAMS = {
     "m4zzz": "1",
 }
 
+# Rapport SQL Koha consolidé pour les réservations expirées (e0azz/e0pzz/e4zzz).
+# Le Bus (164 à l'origine) n'a pas de distinction public/personnel ; plutôt
+# que d'en inventer une, <<Ignorer categorie>> désactive le filtre catégorie
+# pour ce cas (voir le SQL du rapport : le filtre catégorie n'agit que si
+# <<Ignorer categorie>> vaut "0"). Clé -> (site, cible personnel, ignorer categorie).
+_RAPPORT_EXPIREES_ID = "339"
+
+_EXPIREES_PARAMS = {
+    "e0azz": ("MED", "0", "0"),
+    "e0pzz": ("MED", "1", "0"),
+    "e4zzz": ("BUS", "0", "1"),
+}
+
 _LISTE_TEMPLATES = {
     "a": "liste_contentieux",
     "b": "liste_contentieuxb",
     "d": "liste_reservations",
     "t": "liste_reservations",
-    "e": "liste_reservations",
+    "e": "liste_expirees",
     "m": "liste_misecote",
     "p": "liste_perdus",
 }
@@ -399,6 +412,20 @@ def _rapport_param(rapport_id, param_name, value):
     )
 
 
+def _rapport_expirees(rapport_id, site, cible_personnel, ignorer_categorie):
+    return _webservice_get(
+        f"/cgi-bin/koha/svc/report?id={rapport_id}",
+        params=[
+            ("param_names", "Site"),
+            ("param_names", "Cible est personnel"),
+            ("param_names", "Ignorer categorie"),
+            ("sql_params", site),
+            ("sql_params", cible_personnel),
+            ("sql_params", ignorer_categorie),
+        ],
+    )
+
+
 def get_list_data(params):
     for p in ("type", "loc", "public", "wk", "resbranch"):
         params.setdefault(p, "z")
@@ -418,6 +445,8 @@ def get_list_data(params):
         rows = _rapport_param(_RAPPORT_TRAIT_BUS_ID, "Cible est personnel", _TRAIT_BUS_PARAMS[key])
     elif key in _MISECOTE_PARAMS:
         rows = _rapport_param(_RAPPORT_MISECOTE_ID, "Est Bus", _MISECOTE_PARAMS[key])
+    elif key in _EXPIREES_PARAMS:
+        rows = _rapport_expirees(_RAPPORT_EXPIREES_ID, *_EXPIREES_PARAMS[key])
     else:
         rapport = _LISTE_RAPPORTS.get(key)
         rows = _webservice_get(f"/cgi-bin/koha/svc/report?id={rapport}") if rapport else []

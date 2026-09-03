@@ -1,0 +1,77 @@
+{% extends 'layout.html' %}
+{% block content %}
+    <div class="col-sm-12">
+
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                <strong>
+                    {{ label1 }}
+                </strong>
+            </div>
+        </div>
+
+        <table class="table table-bordered" id="mytable">
+
+            <thead>
+                <tr>
+                    <th>Titre</th>
+                    <th>Vol.</th>
+                    <th>Titre de partie</th>
+                    <th>Espace</th>
+                    <th>Cote</th>
+                    <th>Code-barres</th>
+                    <th>Date mise de côté</th>
+                    <th>Carte</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td><a href="https://koha.ville-roubaix.fr/cgi-bin/koha/catalogue/detail.pl?biblionumber={{ row[9] }}">{{ row[0] }}</a></td>
+                    <td>{{ row[1] }}</td>
+                    <td>{{ row[2] }}</td>
+                    <td>{{ row[3] }}</td>
+                    <td>{{ row[4] }}</td>
+                    <td>{% if row[5] %}<a href="https://koha.ville-roubaix.fr/cgi-bin/koha/catalogue/moredetail.pl?itemnumber={{ row[6] }}&amp;biblionumber={{ row[9] }}&amp;bi={{ row[9] }}">{{ row[5] }}</a>{% endif %}</td>
+                    <td>{{ row[7] }}</td>
+                    <td><a href="https://koha.ville-roubaix.fr/cgi-bin/koha/members/moremember.pl?borrowernumber={{ row[10] }}">{{ row[8] }}</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+    </div>
+
+    <script type="text/javascript">
+
+        $(document).ready(function() {
+            $('#mytable').DataTable( {
+                paging: false,
+                language: {
+                    processing:     "Traitement en cours...",
+                    search:         "Rechercher&nbsp;:",
+                    lengthMenu:    "Afficher _MENU_ &eacute;l&eacute;ments",
+                    info:           "Affichage de l'&eacute;lement _START_ &agrave; _END_ sur _TOTAL_ &eacute;l&eacute;ments",
+                    infoEmpty:      "Affichage de l'&eacute;lement 0 &agrave; 0 sur 0 &eacute;l&eacute;ments",
+                    infoFiltered:   "(filtr&eacute; de _MAX_ &eacute;l&eacute;ments au total)",
+                    infoPostFix:    "",
+                    loadingRecords: "Chargement en cours...",
+                    zeroRecords:    "Aucun &eacute;l&eacute;ment &agrave; afficher",
+                    emptyTable:     "Aucune donnée disponible dans le tableau",
+                    paginate: {
+                        first:      "Premier",
+                        previous:   "Pr&eacute;c&eacute;dent",
+                        next:       "Suivant",
+                        last:       "Dernier"
+                    },
+                    aria: {
+                        sortAscending:  ": activer pour trier la colonne par ordre croissant",
+                        sortDescending: ": activer pour trier la colonne par ordre décroissant"
+                    }
+                }
+            });
+        } );
+
+    </script>
+{% endblock %}
