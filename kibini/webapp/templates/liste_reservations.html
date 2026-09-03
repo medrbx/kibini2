@@ -41,7 +41,7 @@
 					<td>{{ row[4] }}</td>
 					<td>
 						{% for barcode in barcodes %}
-						<a href="http://koha.ntrbx.local/cgi-bin/koha/catalogue/moredetail.pl?itemnumber={{ itemnumbers[loop.index0] }}&amp;biblionumber={{ row[9] }}&amp;bi={{ row[9] }}">{{ barcode }}</a>{% if not loop.last %}<br>{% endif %}
+						<a href="https://koha.ville-roubaix.fr/cgi-bin/koha/catalogue/moredetail.pl?itemnumber={{ itemnumbers[loop.index0] }}&amp;biblionumber={{ row[9] }}&amp;bi={{ row[9] }}">{{ barcode }}</a>{% if not loop.last %}<br>{% endif %}
 						{% endfor %}
 					</td>
 					<td>{{ row[7] }}</td>
