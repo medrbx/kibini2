@@ -25,7 +25,10 @@ def _webservice_get(path, params=None):
     base = Config().get_config_webservice()["base"]
     resp = requests.get(f"{base}{path}", params=params)
     resp.raise_for_status()
-    return resp.json()
+    data = resp.json()
+    # svc/report renvoie du NULL SQL tel quel (None) ; sans ça, Jinja affiche
+    # la chaîne "None" dans les tableaux HTML des listes.
+    return [["" if v is None else v for v in row] for row in data]
 
 
 # --------------------------------------------------------------------------
