@@ -278,14 +278,13 @@ _LISTE_TITRES = {
 # précédentes en Perl (%hash) ; on ne garde donc que la dernière définition
 # de chaque clé, comme le fait Perl.
 #
-# Les clés "d0azz" à "d4pzz" (réservations disponibles, hors quarantaine)
-# ne sont plus dans cette table : elles sont servies par le rapport
-# consolidé _RAPPORT_DISPO_ID via _DISPO_PARAMS ci-dessous.
+# Les clés "d0azz" à "d4pzz" (réservations disponibles, hors quarantaine) et
+# "t0azz" à "t4pzz" (en traitement) ne sont plus dans cette table : elles
+# sont servies par les rapports consolidés ci-dessous (_DISPO_PARAMS,
+# _DISPO_BUS_PARAMS, _TRAIT_PARAMS, _TRAIT_BUS_PARAMS).
 _LISTE_RAPPORTS = {
     "d5azz": "205", "d5pzz": "206",
-    "t0azz": "144", "t0pzz": "192", "t1azz": "145", "t1pzz": "193",
-    "t2azz": "146", "t2pzz": "194", "t3azz": "147", "t3pzz": "195",
-    "t4azz": "172", "t4pzz": "196", "e0azz": "134", "e0pzz": "198",
+    "e0azz": "134", "e0pzz": "198",
     "e4zzz": "164", "e0zzz": "177", "m0zzz": "135", "m4zzz": "201",
     "p_et0_s1": "152", "p_et1_s1": "153", "p_et2_s1": "154", "p_et3_s1": "155",
     "aazzz": "207", "bbzzz": "208", "tzzzz": "307",
@@ -327,6 +326,29 @@ _DISPO_BUS_PARAMS = {
     "d4pzz": "1",
 }
 
+# Rapport SQL Koha consolidé pour les réservations en traitement (t0azz..t3pzz),
+# même paramétrage que _RAPPORT_DISPO_ID. Le Bus (t4azz/t4pzz) est à part pour
+# la même raison que pour dispo (voir _RAPPORT_DISPO_BUS_ID).
+_RAPPORT_TRAIT_ID = "336"
+
+_TRAIT_PARAMS = {
+    "t0azz": (["MED0C"], "MED", "0"),
+    "t0pzz": (["MED0C"], "MED", "1"),
+    "t1azz": (["MED1A"], "MED", "0"),
+    "t1pzz": (["MED1A"], "MED", "1"),
+    "t2azz": (["MED2A", "MED2C"], "MED", "0"),
+    "t2pzz": (["MED2A", "MED2C"], "MED", "1"),
+    "t3azz": (_MED3_LOCATIONS, "MED", "0"),
+    "t3pzz": (_MED3_LOCATIONS, "MED", "1"),
+}
+
+_RAPPORT_TRAIT_BUS_ID = "337"
+
+_TRAIT_BUS_PARAMS = {
+    "t4azz": "0",
+    "t4pzz": "1",
+}
+
 _LISTE_TEMPLATES = {
     "a": "liste_contentieux",
     "b": "liste_contentieuxb",
@@ -336,6 +358,33 @@ _LISTE_TEMPLATES = {
     "m": "liste_reservations",
     "p": "liste_perdus",
 }
+
+
+def _rapport_localise(rapport_id, locations, site, cible_personnel):
+    # param_names doit reprendre le texte exact entre << et >> dans le rapport
+    # (suffixe |list inclus) : c'est la clé utilisée par Koha
+    # (Koha::Report::prep_report) pour retrouver la valeur correspondante.
+    return _webservice_get(
+        f"/cgi-bin/koha/svc/report?id={rapport_id}",
+        params=[
+            ("param_names", "Localisation|list"),
+            ("param_names", "Site"),
+            ("param_names", "Cible est personnel"),
+            ("sql_params", "\n".join(locations)),
+            ("sql_params", site),
+            ("sql_params", cible_personnel),
+        ],
+    )
+
+
+def _rapport_cible(rapport_id, cible_personnel):
+    return _webservice_get(
+        f"/cgi-bin/koha/svc/report?id={rapport_id}",
+        params=[
+            ("param_names", "Cible est personnel"),
+            ("sql_params", cible_personnel),
+        ],
+    )
 
 
 def get_list_data(params):
@@ -348,29 +397,13 @@ def get_list_data(params):
     template = _LISTE_TEMPLATES.get(params["type"])
 
     if key in _DISPO_PARAMS:
-        locations, site, cible_personnel = _DISPO_PARAMS[key]
-        rows = _webservice_get(
-            f"/cgi-bin/koha/svc/report?id={_RAPPORT_DISPO_ID}",
-            params=[
-                # param_names doit reprendre le texte exact entre << et >> dans le
-                # rapport (suffixe |list inclus) : c'est la clé utilisée par Koha
-                # (Koha::Report::prep_report) pour retrouver la valeur correspondante.
-                ("param_names", "Localisation|list"),
-                ("param_names", "Site"),
-                ("param_names", "Cible est personnel"),
-                ("sql_params", "\n".join(locations)),
-                ("sql_params", site),
-                ("sql_params", cible_personnel),
-            ],
-        )
+        rows = _rapport_localise(_RAPPORT_DISPO_ID, *_DISPO_PARAMS[key])
     elif key in _DISPO_BUS_PARAMS:
-        rows = _webservice_get(
-            f"/cgi-bin/koha/svc/report?id={_RAPPORT_DISPO_BUS_ID}",
-            params=[
-                ("param_names", "Cible est personnel"),
-                ("sql_params", _DISPO_BUS_PARAMS[key]),
-            ],
-        )
+        rows = _rapport_cible(_RAPPORT_DISPO_BUS_ID, _DISPO_BUS_PARAMS[key])
+    elif key in _TRAIT_PARAMS:
+        rows = _rapport_localise(_RAPPORT_TRAIT_ID, *_TRAIT_PARAMS[key])
+    elif key in _TRAIT_BUS_PARAMS:
+        rows = _rapport_cible(_RAPPORT_TRAIT_BUS_ID, _TRAIT_BUS_PARAMS[key])
     else:
         rapport = _LISTE_RAPPORTS.get(key)
         rows = _webservice_get(f"/cgi-bin/koha/svc/report?id={rapport}") if rapport else []
