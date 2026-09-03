@@ -36,8 +36,5 @@ class Config():
     def get_config_acquereurs(self):
         return self.dataconfig['acquereurs']
 
-    def get_config_stat_sugg(self):
-        return self.dataconfig['stat_sugg']
-
     def get_config_opteio(self):
         return self.dataconfig['opteio']

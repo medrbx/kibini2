@@ -22,5 +22,3 @@ acquereurs:
   - borrowernumber: 1
     nom: titi
     courriel: titi
-stat_sugg:
-  0: Toto

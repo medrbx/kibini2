@@ -75,6 +75,15 @@ webapp/
 
 Routes principales : les tableaux de bord (iframe pointant vers un notebook exporté en `/static/data/*.html`, ou vers Kibana pour les quelques dashboards encore actifs), les pages poldoc (`/*/collections/ensemble`), et les outils (`/qa/inscrits`, `/suggestions`, `/frequentation/etude`, `/form/action_culturelle`, `/form/action_coop`, `/liste`).
 
+### Modifier le menu et les intitulés d'un tableau de bord
+
+Deux fichiers à éditer, indépendants l'un de l'autre (rien ne les garde synchronisés automatiquement) :
+
+1. **`webapp/dashboards.py`** — dictionnaire `DASHBOARDS`, une entrée par route (clé = chemin de l'URL). `label1`/`label2`/`label3` forment le fil d'Ariane affiché en haut de la page, `dashboard.src`/`height` pointent vers le HTML du notebook exporté (ou l'URL Kibana pour les dashboards encore actifs) et sa hauteur d'iframe. `app.py` boucle sur ce dict pour enregistrer les routes : ajouter une entrée suffit à créer la page, pas besoin de toucher `app.py`.
+2. **`webapp/templates/includes/sidebar.html`** — le menu latéral lui-même, un `<a href>` par entrée regroupé par section (Grand-Plage, Médiathèque, Zèbre, Collectivités, poldoc, synthèses). Fichier HTML statique à éditer à la main : ajouter/renommer/retirer un lien n'a aucun effet sur `DASHBOARDS` et réciproquement — une page peut exister dans l'un sans être présente dans l'autre (cas déjà vu lors du retrait des dashboards Kibana, voir `ARCHIVED_KIBANA_DASHBOARDS` dans `dashboards.py`).
+
+Pour ajouter une nouvelle page de tableau de bord : ajouter l'entrée dans `DASHBOARDS` **et** le lien dans `sidebar.html`, dans les deux cas avec le même chemin d'URL. Pour renommer un intitulé de menu, éditer le texte du `<a>` dans `sidebar.html` ; pour renommer le fil d'Ariane d'une page, éditer `label1`/`label2`/`label3` dans `dashboards.py`. Les templates Jinja2 sont rechargés à la volée en `flask run --debug` (voir plus bas), mais pas sous Gunicorn : en production, un changement nécessite un `git pull` + `sudo systemctl restart kibini-web`.
+
 ### Lancement en développement
 
 Depuis `kibini2/kibini`, env `kibini-web` activé :
@@ -116,6 +125,19 @@ Ces trois scripts embarquent la même liste de notebooks en dur dans une boucle 
 
 Certains notebooks dépendent de fichiers déposés dans `data/` (AECS, fréquentation, fonds de carte géojson) ou de partages réseau internes à la Médiathèque — non fournis par git (voir "Topologie" plus haut).
 
+### Publier un nouveau notebook, du `.ipynb` à la page web
+
+Chaîne complète pour ajouter un nouveau tableau de bord, du notebook jusqu'à la page accessible dans le site :
+
+1. **Écrire le notebook** — `kibini/notebook_<nom>.ipynb`, dans l'env conda `kibini` (pas `kibini-web`, voir plus bas). Le notebook doit pouvoir s'exécuter de bout en bout sans cellule interactive (il sera lancé via `jupyter nbconvert --execute`) et ne pas afficher de code en sortie utile (`--no-input` masque le code mais pas les éventuels `print` de debug).
+2. **Ajouter son nom à la liste des trois scripts de publication** — `notebook2html.sh`, `notebook2html_flask.sh` et `test_notebook2html.sh` (voir section précédente) : ajouter `notebook_<nom>` (sans l'extension `.ipynb`) dans le `for filename in ...` de chacun. Les trois listes doivent rester identiques.
+3. **Générer le HTML en dev** — depuis `kibini2/`, env `kibini` activé : `./notebook2html_flask.sh` (ou `test_notebook2html.sh` après y avoir mis temporairement le seul nouveau notebook, pour ne pas tout relancer). Le fichier produit atterrit dans `kibini/webapp/static/data/notebook_<nom>.html` — rappel : ce dossier est gitignoré, donc en prod il faut lancer `notebook2html.sh` séparément sur le serveur (ou transférer le HTML manuellement, voir "Topologie").
+4. **Brancher la route dans `webapp/dashboards.py`** — ajouter une entrée dans `DASHBOARDS` avec le chemin d'URL souhaité, les `label1`/`label2`/`label3` du fil d'Ariane, et `dashboard.src` pointant vers `/static/data/notebook_<nom>.html` (+ `height` ajusté à la taille du rendu).
+5. **Ajouter le lien dans le menu** — un nouveau `<a href="...">` dans `webapp/templates/includes/sidebar.html`, dans la section appropriée, avec le même chemin d'URL qu'à l'étape 4.
+6. **Recharger l'appli** — en dev (`flask run --debug`), les templates et `dashboards.py` sont repris à la prochaine requête sans redémarrage. En prod, `git pull` + `sudo systemctl restart kibini-web` (Gunicorn ne recharge rien à chaud).
+
+Pour une mise à jour périodique d'un notebook déjà publié (pas un nouveau tableau de bord), seule l'étape 3 est à rejouer. **`crontab_lanceur.sh` n'appelle aucun des trois scripts `notebook2html*.sh`** : leur exécution n'est donc pas automatisée par le cron actuel et doit être déclenchée manuellement (ou via un cron séparé à mettre en place si une régénération périodique est souhaitée).
+
 ## Deux environnements conda, volontairement séparés
 
 - **`kibini`** (Python 3.8, voir `environment.yml`) — pipeline data + notebooks (pandas, sqlalchemy, matplotlib, seaborn, geopandas, jupyter...).
@@ -131,14 +153,12 @@ Séparation nécessaire : Flask exige Jinja2 ≥ 3.1, incompatible avec `jupyter
 |---|---|---|
 | `database` | `db`/`user`/`pwd` — connexion MySQL à `statdb` | `kiblib.utils.db.DbConn`, quasiment tout le pipeline et la webapp |
 | `webservice` | `base` (hôte du rapport Koha `ws-koha.*`) + `user`/`pwd` (auth basique de l'API REST Koha) | `webapp/services.py` (rapports `/liste`, `/qa/inscrits`, `/suggestions`, et `mod_suggestion2`) |
-| `elasticsearch` | `node` (URL du nœud ES) | scripts de synchro ES du pipeline cron (pas la webapp) |
 | `opteio` | `login`/`password` — API de comptage de fréquentation par capteurs | `data_entrees_opteio.py`, `kiblib.utils.opteio.OpteioClient` |
 | `salt` | sel de hachage | `kiblib.utils.hashid` (anonymisation des identifiants adhérents) |
 | `dir_log` | répertoire des logs | `kiblib.utils.log.Log` (scripts cron uniquement) |
 | `dir_data` | répertoire de données | scripts d'administration ponctuels |
-| `dir_webdav` | chemin des dumps Koha à charger | `data_load_koha_prod.py` |
+| `dir_webdav` | chemin des dumps Koha à charger | `adm_vendangeur_auth2dedupl.py` (script d'admin ponctuel — `data_load_koha_prod.py` calcule son propre chemin en dur, sans passer par cette clé) |
 | `smtp` | serveur SMTP (adresse IP) | `kiblib.utils.email_sender.send_email`, utilisé par la webapp pour les notifications de suggestions |
 | `acquereurs` | liste `borrowernumber`/`nom`/`courriel` des acquéreurs | webapp (`/suggestions` : liste déroulante d'attribution + email de notification) |
-| `stat_sugg` | mapping `borrowernumber → nom` (jeu de données plus large, historique) | scripts d'analyse ponctuels |
 
 Cette configuration est **par machine** (dev et prod ont chacune leur propre `kibini_conf.yml`, non synchronisé par git) — les identifiants ou hôtes peuvent différer entre les deux (ex. `webservice.base` doit être joignable depuis la machine, ce qui n'est pas le cas depuis toutes les machines de dev).
