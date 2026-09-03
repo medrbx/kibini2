@@ -21,9 +21,9 @@ def _engine():
     return DbConn().create_engine()
 
 
-def _webservice_get(path):
+def _webservice_get(path, params=None):
     base = Config().get_config_webservice()["base"]
-    resp = requests.get(f"{base}{path}")
+    resp = requests.get(f"{base}{path}", params=params)
     resp.raise_for_status()
     return resp.json()
 
@@ -274,16 +274,39 @@ _LISTE_TITRES = {
 # rap (les mêmes clés répétées avec des valeurs différentes) écrasent les
 # précédentes en Perl (%hash) ; on ne garde donc que la dernière définition
 # de chaque clé, comme le fait Perl.
+#
+# Les clés "d0azz" à "d4pzz" (réservations disponibles, hors quarantaine)
+# ne sont plus dans cette table : elles sont servies par le rapport
+# consolidé _RAPPORT_DISPO_ID via _DISPO_PARAMS ci-dessous.
 _LISTE_RAPPORTS = {
-    "d0azz": "128", "d0pzz": "187", "d1azz": "131", "d1pzz": "188",
-    "d2azz": "132", "d2pzz": "189", "d3azz": "133", "d3pzz": "190",
-    "d4azz": "170", "d4pzz": "191", "d5azz": "205", "d5pzz": "206",
+    "d5azz": "205", "d5pzz": "206",
     "t0azz": "144", "t0pzz": "192", "t1azz": "145", "t1pzz": "193",
     "t2azz": "146", "t2pzz": "194", "t3azz": "147", "t3pzz": "195",
     "t4azz": "172", "t4pzz": "196", "e0azz": "134", "e0pzz": "198",
     "e4zzz": "164", "e0zzz": "177", "m0zzz": "135", "m4zzz": "201",
     "p_et0_s1": "152", "p_et1_s1": "153", "p_et2_s1": "154", "p_et3_s1": "155",
     "aazzz": "207", "bbzzz": "208", "tzzzz": "307",
+}
+
+# Rapport SQL Koha consolidé pour les réservations disponibles (d0azz..d4pzz),
+# paramétré via les paramètres runtime Koha <<Localisation|list>>, <<Site>>
+# et <<Cible est personnel>> (voir svc/report : sql_params/param_names).
+_RAPPORT_DISPO_ID = "333"
+
+_MED3_LOCATIONS = [f"MED3{lettre}" for lettre in "ABCDEFGHIJKLMNOPQRST"]
+
+# Clé -> (codes de localisation, site de retrait, cible personnel ("1") ou public ("0"))
+_DISPO_PARAMS = {
+    "d0azz": (["MED0C"], "MED", "0"),
+    "d0pzz": (["MED0C"], "MED", "1"),
+    "d1azz": (["MED1A"], "MED", "0"),
+    "d1pzz": (["MED1A"], "MED", "1"),
+    "d2azz": (["MED2A", "MED2C"], "MED", "0"),
+    "d2pzz": (["MED2A", "MED2C"], "MED", "1"),
+    "d3azz": (_MED3_LOCATIONS, "MED", "0"),
+    "d3pzz": (_MED3_LOCATIONS, "MED", "1"),
+    "d4azz": (["BUS1A"], "BUS", "0"),
+    "d4pzz": (["BUS1A"], "BUS", "1"),
 }
 
 _LISTE_TEMPLATES = {
@@ -305,8 +328,22 @@ def get_list_data(params):
 
     titre = _LISTE_TITRES.get(key)
     template = _LISTE_TEMPLATES.get(params["type"])
-    rapport = _LISTE_RAPPORTS.get(key)
 
-    rows = _webservice_get(f"/cgi-bin/koha/svc/report?id={rapport}") if rapport else []
+    if key in _DISPO_PARAMS:
+        locations, site, cible_personnel = _DISPO_PARAMS[key]
+        rows = _webservice_get(
+            f"/cgi-bin/koha/svc/report?id={_RAPPORT_DISPO_ID}",
+            params=[
+                ("param_names", "Localisation"),
+                ("param_names", "Site"),
+                ("param_names", "Cible est personnel"),
+                ("sql_params", "\n".join(locations)),
+                ("sql_params", site),
+                ("sql_params", cible_personnel),
+            ],
+        )
+    else:
+        rapport = _LISTE_RAPPORTS.get(key)
+        rows = _webservice_get(f"/cgi-bin/koha/svc/report?id={rapport}") if rapport else []
 
     return {"titre": titre, "template": template, "rows": rows}
