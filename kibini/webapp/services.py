@@ -299,6 +299,13 @@ _RAPPORT_DISPO_ID = "333"
 _MED3_LOCATIONS = [f"MED3{lettre}" for lettre in "ABCDEFGHIJKLMNOPQRST"]
 
 # Clé -> (codes de localisation, site de retrait, cible personnel ("1") ou public ("0"))
+# Le Bus (d4azz/d4pzz) n'est pas ici : la jointure items/reserves par titre
+# fait remonter, pour ce site, des réservations d'usagers sans rapport avec
+# le Bus dès qu'un titre a par ailleurs un exemplaire en BUS1A. Un simple
+# filtre sur le site de l'exemplaire ne suffit pas à écarter ces faux
+# positifs ; il faut filtrer sur le site de rattachement de l'usager
+# (bo.branchcode), d'où un rapport dédié (_RAPPORT_DISPO_BUS_ID) plutôt
+# qu'une entrée paramétrée ici.
 _DISPO_PARAMS = {
     "d0azz": (["MED0C"], "MED", "0"),
     "d0pzz": (["MED0C"], "MED", "1"),
@@ -308,8 +315,16 @@ _DISPO_PARAMS = {
     "d2pzz": (["MED2A", "MED2C"], "MED", "1"),
     "d3azz": (_MED3_LOCATIONS, "MED", "0"),
     "d3pzz": (_MED3_LOCATIONS, "MED", "1"),
-    "d4azz": (["BUS1A"], "BUS", "0"),
-    "d4pzz": (["BUS1A"], "BUS", "1"),
+}
+
+# Rapport SQL Koha dédié aux réservations disponibles pour le Bus (d4azz/d4pzz),
+# avec filtre sur bo.branchcode = 'BUS' (site de rattachement de l'usager).
+_RAPPORT_DISPO_BUS_ID = "334"
+
+# Clé -> cible personnel ("1") ou public ("0")
+_DISPO_BUS_PARAMS = {
+    "d4azz": "0",
+    "d4pzz": "1",
 }
 
 _LISTE_TEMPLATES = {
@@ -346,6 +361,14 @@ def get_list_data(params):
                 ("sql_params", "\n".join(locations)),
                 ("sql_params", site),
                 ("sql_params", cible_personnel),
+            ],
+        )
+    elif key in _DISPO_BUS_PARAMS:
+        rows = _webservice_get(
+            f"/cgi-bin/koha/svc/report?id={_RAPPORT_DISPO_BUS_ID}",
+            params=[
+                ("param_names", "Cible est personnel"),
+                ("sql_params", _DISPO_BUS_PARAMS[key]),
             ],
         )
     else:
