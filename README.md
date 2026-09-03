@@ -84,6 +84,22 @@ Deux fichiers à éditer, indépendants l'un de l'autre (rien ne les garde synch
 
 Pour ajouter une nouvelle page de tableau de bord : ajouter l'entrée dans `DASHBOARDS` **et** le lien dans `sidebar.html`, dans les deux cas avec le même chemin d'URL. Pour renommer un intitulé de menu, éditer le texte du `<a>` dans `sidebar.html` ; pour renommer le fil d'Ariane d'une page, éditer `label1`/`label2`/`label3` dans `dashboards.py`. Les templates Jinja2 sont rechargés à la volée en `flask run --debug` (voir plus bas), mais pas sous Gunicorn : en production, un changement nécessite un `git pull` + `sudo systemctl restart kibini-web`.
 
+### Bug connu : liens Koha échappés dans `/liste` (colonne Code-barres)
+
+La route `/liste` (voir `services.get_list_data`) affiche des lignes issues de rapports Koha (`GET /cgi-bin/koha/svc/report?id=<rapport>`). Pour les rapports de type disponibilités/en traitement/expirées/mises de côté/perdus, le champ "Code-barres" (`row[5]`) est renvoyé par Koha déjà sous forme de HTML tout fait, ex. `<a href="http://koha.ntrbx.local/cgi-bin/koha/catalogue/moredetail.pl?itemnumber=...">C0005741496</a>`.
+
+- **Perl d'origine (Template Toolkit, `[% row.5 %]`)** : TT n'échappe pas le HTML par défaut → ce `<a>` s'affichait comme un lien cliquable fonctionnel.
+- **Portage Python (Jinja2, `{{ row[5] }}`)** : Jinja échappe automatiquement toute variable → le lien s'affiche en clair (balises visibles) au lieu d'être cliquable.
+
+Champ affecté (`{{ row[5] }}` non protégé) dans `webapp/templates/liste_reservations.html:38` et `webapp/templates/liste_perdus.html:38`. Fix identifié mais pas appliqué (à corriger séparément) : passer ce champ en `{{ row[5] | safe }}` dans les deux templates. `liste_contentieux.html`/`liste_contentieuxb.html` n'ont pas de champ équivalent et ne sont pas concernés.
+
+Rapports Koha affectés :
+
+- Via `liste_reservations.html` (types `d`/`t`/`e`/`m`, 29 rapports) : 128, 187, 131, 188, 132, 189, 133, 190, 170, 191, 205, 206 (disponibles, RDC/1er/2e/3e/Zèbre/Quarantaine × public/personnel), 144, 192, 145, 193, 146, 194, 147, 195, 172, 196 (en traitement, mêmes sites × public/personnel), 134, 198, 164, 177 (expirées), 135, 201 (mises de côté), 307 (réparties en rayons, `tzzzz`).
+- Via `liste_perdus.html` (type `p`, 4 rapports) : 152, 153, 154, 155 (perdus depuis une semaine, RDC/1er/2e/3e étage).
+
+Gap distinct constaté au passage : les combinaisons "perdus depuis 3/5 semaines" ont un intitulé dans `_LISTE_TITRES` mais aucun rapport associé dans `_LISTE_RAPPORTS` — `get_list_data` renvoie alors une liste vide (aucun appel webservice), silencieusement.
+
 ### Lancement en développement
 
 Depuis `kibini2/kibini`, env `kibini-web` activé :
