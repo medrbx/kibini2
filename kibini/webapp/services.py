@@ -334,7 +334,10 @@ def get_list_data(params):
         rows = _webservice_get(
             f"/cgi-bin/koha/svc/report?id={_RAPPORT_DISPO_ID}",
             params=[
-                ("param_names", "Localisation"),
+                # param_names doit reprendre le texte exact entre << et >> dans le
+                # rapport (suffixe |list inclus) : c'est la clé utilisée par Koha
+                # (Koha::Report::prep_report) pour retrouver la valeur correspondante.
+                ("param_names", "Localisation|list"),
                 ("param_names", "Site"),
                 ("param_names", "Cible est personnel"),
                 ("sql_params", "\n".join(locations)),
