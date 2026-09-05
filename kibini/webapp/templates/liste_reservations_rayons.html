@@ -31,22 +31,22 @@
             <tbody>
                 {% for row in rows %}
                 <tr>
-					<td><a href="https://koha.ville-roubaix.fr/cgi-bin/koha/catalogue/detail.pl?biblionumber={{ row[8] }}">{{ row[0] }}</a></td>
-					<td>{{ row[10] }}</td>
-					<td>{{ row[1] }}</td>
-					<td>{{ row[2] }}</td>
+					<td><a href="https://koha.ville-roubaix.fr/cgi-bin/koha/catalogue/detail.pl?biblionumber={{ row[1] }}">{{ row[2] }}</a></td>
+					<td>{{ row[12] }}</td>
 					<td>{{ row[3] }}</td>
 					<td>{{ row[4] }}</td>
-					{# Rapport 307 (tzzzz), non consolidé : contrairement aux rapports
-					   dispo/trait/misecote/expirees/perdus, Koha renvoie encore ici la
-					   colonne Code-barres déjà sous forme de lien HTML tout fait
-					   (pas de colonne itemnumber séparée à reconstruire) — d'où le
-					   `| safe` ici uniquement. #}
-					<td>{{ row[5] | safe }}</td>
+					<td>{{ row[5] }}</td>
 					<td>{{ row[6] }}</td>
-					<td><a href="https://koha.ville-roubaix.fr/cgi-bin/koha/members/moremember.pl?borrowernumber={{ row[9] }}">{{ row[7] }}</a></td>
-					<td>{{ row[11] }}</td>
-					<td>{{ row[12] }}</td>
+					{# Rapport 307 (tzzzz), non consolidé : contrairement aux rapports
+					   dispo/trait/misecote/expirees/perdus, cette colonne est déjà un
+					   GROUP_CONCAT de liens <a> complets (un par exemplaire, séparés par
+					   <br>), directement générés par le SQL du rapport — pas de colonne
+					   itemnumber séparée à reconstruire, d'où le `| safe` tel quel. #}
+					<td>{{ row[7] | safe }}</td>
+					<td>{{ row[8] }}</td>
+					<td><a href="https://koha.ville-roubaix.fr/cgi-bin/koha/members/moremember.pl?borrowernumber={{ row[11] }}">{{ row[9] }}</a></td>
+					<td>{{ row[13] }}</td>
+					<td>{{ row[14] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
