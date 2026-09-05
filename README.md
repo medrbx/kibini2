@@ -100,6 +100,36 @@ Deux fichiers à éditer, indépendants l'un de l'autre (rien ne les garde synch
 
 Pour ajouter une nouvelle page de tableau de bord : ajouter l'entrée dans `DASHBOARDS` **et** le lien dans `sidebar.html`, dans les deux cas avec le même chemin d'URL. Pour renommer un intitulé de menu, éditer le texte du `<a>` dans `sidebar.html` ; pour renommer le fil d'Ariane d'une page, éditer `label1`/`label2`/`label3` dans `dashboards.py`. Les templates Jinja2 sont rechargés à la volée en `flask run --debug` (voir plus bas), mais pas sous Gunicorn : en production, un changement nécessite un `git pull` + `sudo systemctl restart kibini-web`.
 
+### Routes qui appellent un rapport Koha (`svc/report`)
+
+Liste exhaustive des routes de `app.py` qui appellent en dernier ressort `svc/report` côté Koha (via `services._webservice_get`) — les autres routes (dashboards Kibana, `/frequentation/*`, `/form/*`, `/grand-plage/*`...) passent par la base SQL directe (`DbConn`) ou du contenu statique.
+
+Routes à rapport fixe (pas de paramètre) :
+
+| Route | Rapport Koha | Fonction |
+|---|---|---|
+| `GET /qa/inscrits` | `id=166` | `services.get_borrowers_for_qa` |
+| `GET /suggestions` | `id=309` | `services.suggestions3` |
+
+`GET /liste?type=...&loc=...&public=...&wk=...&resbranch=...` — route unique, dispatchée selon la clé `type+loc+public+wk+resbranch` (`services.get_list_data`) :
+
+| Catégorie | Rapport Koha | Paramétrage runtime (`param_names`/`sql_params`) |
+|---|---|---|
+| Réservations disponibles (RDC→3e étage) | `id=333` | `Localisation\|list`, `Site`, `Cible est personnel` (`_DISPO_PARAMS`) |
+| Réservations disponibles, Bus/Zèbre | `id=334` | `Cible est personnel` (`_DISPO_BUS_PARAMS`) |
+| Réservations en traitement (RDC→3e étage) | `id=336` | `Localisation\|list`, `Site`, `Cible est personnel` (`_TRAIT_PARAMS`) |
+| Réservations en traitement, Bus/Zèbre | `id=337` | `Cible est personnel` (`_TRAIT_BUS_PARAMS`) |
+| Réservations mises de côté | `id=338` | `Est Bus` (`_MISECOTE_PARAMS`) |
+| Réservations expirées | `id=339` | `Site`, `Cible est personnel`, `Ignorer categorie` (`_EXPIREES_PARAMS`) |
+| Documents perdus (1/3/5 semaines, tous étages + Zèbre) | `id=340` | `Localisation\|list`, `Semaines` (`_PERDUS_PARAMS`) |
+| Réservations dispo, Quarantaine (`d5azz`/`d5pzz`) | `id=205` / `id=206` | aucun (rapport figé, `_LISTE_RAPPORTS`) |
+| Réservations annulées la veille (`e0zzz`) | `id=177` | aucun |
+| Contentieux — personnes à appeler (`aazzz`) | `id=207` | aucun |
+| Contentieux — titres de recettes (`bbzzz`) | `id=208` | aucun |
+| Réservations reparties en rayons (`tzzzz`) | `id=307` | aucun |
+
+Si la clé ne correspond à aucune entrée, `/liste` renvoie une liste vide sans appeler Koha.
+
 ### Consolidation des rapports Koha derrière `/liste` (dispos/traitement/mise de côté/expirées/perdus)
 
 `/liste` (voir `services.get_list_data`) affichait à l'origine ~30 rapports SQL Koha quasi-identiques (un par étage/site/public-personnel), chacun avec ses propres littéraux codés en dur. Ils ont été consolidés en quelques rapports paramétrés via les paramètres runtime Koha (`<<Label>>`, `<<Label|list>>`, voir `svc/report` : `sql_params`/`param_names`) : `_DISPO_PARAMS`/`_DISPO_BUS_PARAMS`, `_TRAIT_PARAMS`/`_TRAIT_BUS_PARAMS`, `_MISECOTE_PARAMS`, `_EXPIREES_PARAMS`, `_PERDUS_PARAMS` dans `services.py`. Restent non consolidés (établis comme des requêtes métier réellement différentes) : contentieux (`aazzz`/`bbzzz`, ids 207/208) et `tzzzz` (307).
