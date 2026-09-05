@@ -279,15 +279,15 @@ _LISTE_TITRES = {
 # de chaque clé, comme le fait Perl.
 #
 # Les clés "d0azz" à "d4pzz" (réservations disponibles, hors quarantaine),
-# "t0azz" à "t4pzz" (en traitement), "m0zzz"/"m4zzz" (mise de côté) et
+# "t0azz" à "t4pzz" (en traitement), "m0zzz"/"m4zzz" (mise de côté),
 # "e0azz"/"e0pzz"/"e4zzz" (expirées, hors "annulées la veille" e0zzz qui reste
-# ici) ne sont plus dans cette table : elles sont servies par les rapports
-# consolidés ci-dessous (_DISPO_PARAMS, _DISPO_BUS_PARAMS, _TRAIT_PARAMS,
-# _TRAIT_BUS_PARAMS, _MISECOTE_PARAMS, _EXPIREES_PARAMS).
+# ici) et "p_et0_s1" à "p_et3_s5" (perdus) ne sont plus dans cette table :
+# elles sont servies par les rapports consolidés ci-dessous (_DISPO_PARAMS,
+# _DISPO_BUS_PARAMS, _TRAIT_PARAMS, _TRAIT_BUS_PARAMS, _MISECOTE_PARAMS,
+# _EXPIREES_PARAMS, _PERDUS_PARAMS).
 _LISTE_RAPPORTS = {
     "d5azz": "205", "d5pzz": "206",
     "e0zzz": "177",
-    "p_et0_s1": "152", "p_et1_s1": "153", "p_et2_s1": "154", "p_et3_s1": "155",
     "aazzz": "207", "bbzzz": "208", "tzzzz": "307",
 }
 
@@ -374,6 +374,36 @@ _EXPIREES_PARAMS = {
     "e4zzz": ("BUS", "0", "1"),
 }
 
+# Rapport SQL Koha consolidé pour les documents perdus (p_et0_s1..p_et3_s5) :
+# remplace 15 rapports quasi-identiques (WS_perdus_{une,trois,cinq}_semaines_
+# et{0..3} + variante Bus), qui ne différaient que par la localisation et le
+# nombre de semaines (<<Semaines>> dans YEARWEEK(... - INTERVAL <<Semaines>>
+# WEEK)). Pas de risque de fan-out titre ici (jointure directe sur items, pas
+# sur reserves/biblionumber comme pour dispo/trait) : le Bus pourrait passer
+# par ce même rapport sans rapport dédié, simplement non exposé pour l'instant
+# (aucune clé p_et4_s* dans _LISTE_TITRES).
+# NB : avant cette consolidation, "p_et0_s1".."p_et3_s1" (depuis une semaine)
+# pointaient par erreur vers les rapports "cinq semaines" (152-155) ; les
+# rapports "trois"/"cinq" semaines existaient déjà côté Koha mais n'étaient
+# jamais câblés ici (d'où le "gap" precedemment repéré dans le README).
+_RAPPORT_PERDUS_ID = "340"
+
+# Clé -> (codes de localisation, nombre de semaines)
+_PERDUS_PARAMS = {
+    "p_et0_s1": (["MED0C"], "1"),
+    "p_et1_s1": (["MED1A"], "1"),
+    "p_et2_s1": (["MED2A", "MED2C"], "1"),
+    "p_et3_s1": (_MED3_LOCATIONS, "1"),
+    "p_et0_s3": (["MED0C"], "3"),
+    "p_et1_s3": (["MED1A"], "3"),
+    "p_et2_s3": (["MED2A", "MED2C"], "3"),
+    "p_et3_s3": (_MED3_LOCATIONS, "3"),
+    "p_et0_s5": (["MED0C"], "5"),
+    "p_et1_s5": (["MED1A"], "5"),
+    "p_et2_s5": (["MED2A", "MED2C"], "5"),
+    "p_et3_s5": (_MED3_LOCATIONS, "5"),
+}
+
 _LISTE_TEMPLATES = {
     "a": "liste_contentieux",
     "b": "liste_contentieuxb",
@@ -426,6 +456,18 @@ def _rapport_expirees(rapport_id, site, cible_personnel, ignorer_categorie):
     )
 
 
+def _rapport_perdus(rapport_id, locations, semaines):
+    return _webservice_get(
+        f"/cgi-bin/koha/svc/report?id={rapport_id}",
+        params=[
+            ("param_names", "Localisation|list"),
+            ("param_names", "Semaines"),
+            ("sql_params", "\n".join(locations)),
+            ("sql_params", semaines),
+        ],
+    )
+
+
 def get_list_data(params):
     for p in ("type", "loc", "public", "wk", "resbranch"):
         params.setdefault(p, "z")
@@ -447,6 +489,8 @@ def get_list_data(params):
         rows = _rapport_param(_RAPPORT_MISECOTE_ID, "Est Bus", _MISECOTE_PARAMS[key])
     elif key in _EXPIREES_PARAMS:
         rows = _rapport_expirees(_RAPPORT_EXPIREES_ID, *_EXPIREES_PARAMS[key])
+    elif key in _PERDUS_PARAMS:
+        rows = _rapport_perdus(_RAPPORT_PERDUS_ID, *_PERDUS_PARAMS[key])
     else:
         rapport = _LISTE_RAPPORTS.get(key)
         rows = _webservice_get(f"/cgi-bin/koha/svc/report?id={rapport}") if rapport else []

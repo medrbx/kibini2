@@ -100,21 +100,15 @@ Deux fichiers à éditer, indépendants l'un de l'autre (rien ne les garde synch
 
 Pour ajouter une nouvelle page de tableau de bord : ajouter l'entrée dans `DASHBOARDS` **et** le lien dans `sidebar.html`, dans les deux cas avec le même chemin d'URL. Pour renommer un intitulé de menu, éditer le texte du `<a>` dans `sidebar.html` ; pour renommer le fil d'Ariane d'une page, éditer `label1`/`label2`/`label3` dans `dashboards.py`. Les templates Jinja2 sont rechargés à la volée en `flask run --debug` (voir plus bas), mais pas sous Gunicorn : en production, un changement nécessite un `git pull` + `sudo systemctl restart kibini-web`.
 
-### Bug connu : liens Koha échappés dans `/liste` (colonne Code-barres)
+### Consolidation des rapports Koha derrière `/liste` (dispos/traitement/mise de côté/expirées/perdus)
 
-La route `/liste` (voir `services.get_list_data`) affiche des lignes issues de rapports Koha (`GET /cgi-bin/koha/svc/report?id=<rapport>`). Pour les rapports de type disponibilités/en traitement/expirées/mises de côté/perdus, le champ "Code-barres" (`row[5]`) est renvoyé par Koha déjà sous forme de HTML tout fait, ex. `<a href="http://koha.ntrbx.local/cgi-bin/koha/catalogue/moredetail.pl?itemnumber=...">C0005741496</a>`.
+`/liste` (voir `services.get_list_data`) affichait à l'origine ~30 rapports SQL Koha quasi-identiques (un par étage/site/public-personnel), chacun avec ses propres littéraux codés en dur. Ils ont été consolidés en quelques rapports paramétrés via les paramètres runtime Koha (`<<Label>>`, `<<Label|list>>`, voir `svc/report` : `sql_params`/`param_names`) : `_DISPO_PARAMS`/`_DISPO_BUS_PARAMS`, `_TRAIT_PARAMS`/`_TRAIT_BUS_PARAMS`, `_MISECOTE_PARAMS`, `_EXPIREES_PARAMS`, `_PERDUS_PARAMS` dans `services.py`. Restent non consolidés (établis comme des requêtes métier réellement différentes) : contentieux (`aazzz`/`bbzzz`, ids 207/208) et `tzzzz` (307).
 
-- **Perl d'origine (Template Toolkit, `[% row.5 %]`)** : TT n'échappe pas le HTML par défaut → ce `<a>` s'affichait comme un lien cliquable fonctionnel.
-- **Portage Python (Jinja2, `{{ row[5] }}`)** : Jinja échappe automatiquement toute variable → le lien s'affiche en clair (balises visibles) au lieu d'être cliquable.
+**Bug corrigé au passage** : les clés `p_et0_s1` à `p_et3_s1` ("documents perdus depuis une semaine") pointaient par erreur vers les rapports Koha "cinq semaines" (152-155) au lieu des rapports "une semaine" (140-143). Les rapports "trois"/"cinq" semaines existaient bien côté Koha mais n'étaient jamais câblés dans `_LISTE_RAPPORTS` (ce qui ressemblait à un simple rapport manquant). Les 15 anciens rapports `WS_perdus_*_semaine_et*` (+ variante Bus) sont remplacés par un unique rapport paramétré (`_RAPPORT_PERDUS_ID`, `<<Localisation|list>>` + `<<Semaines>>`) — pas de risque de fan-out titre ici (jointure directe sur `items`, pas sur `reserves`/`biblionumber`).
 
-Champ affecté (`{{ row[5] }}` non protégé) dans `webapp/templates/liste_reservations.html:38` et `webapp/templates/liste_perdus.html:38`. Fix identifié mais pas appliqué (à corriger séparément) : passer ce champ en `{{ row[5] | safe }}` dans les deux templates. `liste_contentieux.html`/`liste_contentieuxb.html` n'ont pas de champ équivalent et ne sont pas concernés.
+**Rapports Koha devenus orphelins**, à supprimer manuellement dans Koha une fois les consolidations confirmées en usage réel (non fait automatiquement, aucun outil ne le permet depuis ce dépôt) : 140-143, 173, 148-151, 174, 152-155, 175 (anciens `WS_perdus_*_semaine_et*`), ainsi que 136-139, 171 (`Reservations_WS_perdues_*`, une génération encore antérieure, déjà orpheline avant même cette consolidation — jamais référencée dans `_LISTE_RAPPORTS`/`_LISTE_TITRES`).
 
-Rapports Koha affectés :
-
-- Via `liste_reservations.html` (types `d`/`t`/`e`/`m`, 29 rapports) : 128, 187, 131, 188, 132, 189, 133, 190, 170, 191, 205, 206 (disponibles, RDC/1er/2e/3e/Zèbre/Quarantaine × public/personnel), 144, 192, 145, 193, 146, 194, 147, 195, 172, 196 (en traitement, mêmes sites × public/personnel), 134, 198, 164, 177 (expirées), 135, 201 (mises de côté), 307 (réparties en rayons, `tzzzz`).
-- Via `liste_perdus.html` (type `p`, 4 rapports) : 152, 153, 154, 155 (perdus depuis une semaine, RDC/1er/2e/3e étage).
-
-Gap distinct constaté au passage : les combinaisons "perdus depuis 3/5 semaines" ont un intitulé dans `_LISTE_TITRES` mais aucun rapport associé dans `_LISTE_RAPPORTS` — `get_list_data` renvoie alors une liste vide (aucun appel webservice), silencieusement.
+**Bug d'échappement HTML corrigé** : Koha renvoyait la colonne "Code-barres" déjà sous forme de lien HTML tout fait (`<a href="...">code</a>), que Template Toolkit (Perl d'origine) affichait tel quel mais que Jinja2 échappe par défaut. Plutôt que de démarquer ce HTML avec `| safe` (recevoir du HTML pré-construit depuis un rapport SQL externe est fragile), le SQL de chaque rapport consolidé a été changé pour renvoyer barcode et itemnumber en colonnes séparées, le lien étant reconstruit dans le template (`liste_reservations.html`, `liste_misecote.html`, `liste_expirees.html`, `liste_perdus.html`). `liste_contentieux.html`/`liste_contentieuxb.html` n'ont pas de champ équivalent et ne sont pas concernés.
 
 ### Lancement en développement
 
