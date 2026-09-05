@@ -70,6 +70,10 @@ DASHBOARDS = {
         "label1": "La Grand-Plage", "label2": "Activité", "label3": "Dimanches 2025-2026",
         "dashboard": {"src": "/static/data/notebook_dimanche25.html", "height": "2600px"},
     },
+    "/grand-plage/dimanche26": {
+        "label1": "La Grand-Plage", "label2": "Activité", "label3": "Dimanches 2026-2027",
+        "dashboard": {"src": "/static/data/notebook_dimanche26.html", "height": "2600px"},
+    },
     "/grand-plage/synthese_pluriannuelle": {
         "label1": "La Grand-Plage", "label2": "Activité", "label3": "Synthèse pluriannuelle",
         "dashboard": {"src": "/static/data/notebook_kibini2_lgp_syntheses_pluriannuelles.html", "height": "1500px"},
