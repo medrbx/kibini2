@@ -33,6 +33,18 @@ def create_app():
         endpoint = f"dashboard{path}"
         app.add_url_rule(path, endpoint, _kibana_view(page), strict_slashes=False)
 
+    @app.route("/grand-plage/dimanche_archives")
+    def dimanche_archives():
+        return render_template(
+            "dimanche_archives.html",
+            annees=[
+                ("/grand-plage/dimanche22", "Dimanches 2022-2023"),
+                ("/grand-plage/dimanche23", "Dimanches 2023-2024"),
+                ("/grand-plage/dimanche24", "Dimanches 2024-2025"),
+                ("/grand-plage/dimanche25", "Dimanches 2025-2026"),
+            ],
+        )
+
     # PARTIE 5 - La poldoc de La Grand-Plage
 
     @app.route("/grand-plage/collections/ensemble")

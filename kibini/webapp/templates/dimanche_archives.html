@@ -1,0 +1,24 @@
+{% extends 'layout.html' %}
+{% block content %}
+        <div id="sidebar">
+            {% include 'includes/sidebar.html' %}
+        </div>
+        <div class="col-sm-9">
+            <div class="panel panel-primary">
+
+                <div class="panel-heading">
+                    <strong>
+                    La Grand-Plage<span>   </span><i class="glyphicon glyphicon-chevron-right"></i><span>   </span>Activité<span>   </span><i class="glyphicon glyphicon-chevron-right"></i><span>   </span>Archives des dimanches
+                    </strong>
+                </div>
+                <div class="panel-body">
+                    <ul class="nav nav-stacked">
+                        {% for path, label in annees %}
+                        <li><a href="{{ path }}"><span class="sd">{{ label }}</span></a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+{% endblock %}
