@@ -49,8 +49,9 @@ python $dir_kib/kibini/data_reserves.py
 # On traite les données liées à la fréquentation de la salle d'étude
 python $dir_kib/kibini/data_freq_etude.py
 
-# On incorpore les entrées
-python $dir_kib/kibini/data_entrees_opteio.py --last 1
+# On incorpore les entrées -> indisponibilité la nuit le week-end, on le met directement en crontab
+#
+# python $dir_kib/kibini/data_entrees_opteio.py --last 1
 
 # NOUVELLE VERSION
 # On met à jour les données exemplaires
