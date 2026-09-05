@@ -424,6 +424,15 @@ _LISTE_TEMPLATES = {
     "p": "liste_perdus",
 }
 
+# tzzzz (rapport 307, "réservations reparties en rayons") partage le type "t"
+# avec les rapports trait consolidés, mais son SQL n'a pas été touché par la
+# consolidation : il renvoie une forme de colonnes différente (Code-barres
+# déjà en HTML tout fait, pas de colonne itemnumber séparée). Il a donc besoin
+# de son propre template plutôt que de partager liste_reservations.html.
+_LISTE_TEMPLATES_OVERRIDE = {
+    "tzzzz": "liste_reservations_rayons",
+}
+
 
 def _rapport_localise(rapport_id, locations, site, cible_personnel):
     # param_names doit reprendre le texte exact entre << et >> dans le rapport
@@ -485,7 +494,7 @@ def get_list_data(params):
     key = params["type"] + params["loc"] + params["public"] + params["wk"] + params["resbranch"]
 
     titre = _LISTE_TITRES.get(key)
-    template = _LISTE_TEMPLATES.get(params["type"])
+    template = _LISTE_TEMPLATES_OVERRIDE.get(key) or _LISTE_TEMPLATES.get(params["type"])
 
     if key in _DISPO_PARAMS:
         rows = _rapport_localise(_RAPPORT_DISPO_ID, *_DISPO_PARAMS[key])

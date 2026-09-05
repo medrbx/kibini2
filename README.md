@@ -126,7 +126,7 @@ Routes à rapport fixe (pas de paramètre) :
 | Réservations annulées la veille (`e0zzz`) | `id=177` | aucun |
 | Contentieux — personnes à appeler (`aazzz`) | `id=207` | aucun |
 | Contentieux — titres de recettes (`bbzzz`) | `id=208` | aucun |
-| Réservations reparties en rayons (`tzzzz`) | `id=307` | aucun |
+| Réservations reparties en rayons (`tzzzz`) | `id=307` | aucun — template dédié `liste_reservations_rayons.html` (voir plus bas) |
 
 Si la clé ne correspond à aucune entrée, `/liste` renvoie une liste vide sans appeler Koha.
 
@@ -139,6 +139,8 @@ Si la clé ne correspond à aucune entrée, `/liste` renvoie une liste vide sans
 **Rapports Koha devenus orphelins**, à supprimer manuellement dans Koha une fois les consolidations confirmées en usage réel (non fait automatiquement, aucun outil ne le permet depuis ce dépôt) : 140-143, 173, 148-151, 174, 152-155, 175 (anciens `WS_perdus_*_semaine_et*`), ainsi que 136-139, 171 (`Reservations_WS_perdues_*`, une génération encore antérieure, déjà orpheline avant même cette consolidation — jamais référencée dans `_LISTE_RAPPORTS`/`_LISTE_TITRES`).
 
 **Bug d'échappement HTML corrigé** : Koha renvoyait la colonne "Code-barres" déjà sous forme de lien HTML tout fait (`<a href="...">code</a>), que Template Toolkit (Perl d'origine) affichait tel quel mais que Jinja2 échappe par défaut. Plutôt que de démarquer ce HTML avec `| safe` (recevoir du HTML pré-construit depuis un rapport SQL externe est fragile), le SQL de chaque rapport consolidé a été changé pour renvoyer barcode et itemnumber en colonnes séparées, le lien étant reconstruit dans le template (`liste_reservations.html`, `liste_misecote.html`, `liste_expirees.html`, `liste_perdus.html`). `liste_contentieux.html`/`liste_contentieuxb.html` n'ont pas de champ équivalent et ne sont pas concernés.
+
+**Bug corrigé — colonnes décalées sur `tzzzz`** : `tzzzz` (id 307) partage le type `t` avec les rapports trait consolidés, mais son SQL n'a pas été modifié par la consolidation ci-dessus — il renvoie donc encore la colonne Code-barres pré-construite en HTML, sur un nombre de colonnes différent de celui désormais attendu par `liste_reservations.html`. Comme ce template avait été réécrit pour le nouveau format (barcode/itemnumber séparés), `tzzzz` affichait des colonnes décalées et le HTML brut du Code-barres apparaissait échappé (littéralement `<a href="...">...</a>`) dans la page. Un template dédié `liste_reservations_rayons.html` reprend l'ancien mapping de colonnes (13 colonnes, Code-barres en `| safe` puisque Koha le fournit déjà prêt à l'emploi pour ce rapport précis) ; `_LISTE_TEMPLATES_OVERRIDE` dans `services.py` le sélectionne spécifiquement pour la clé `tzzzz`, sans toucher aux autres rapports de type `t`.
 
 ### Lancement en développement
 
