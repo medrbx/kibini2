@@ -268,6 +268,9 @@ _LISTE_TITRES = {
     "p_et1_s5": "Documents perdus depuis cinq semaines, 1er étage",
     "p_et2_s5": "Documents perdus depuis cinq semaines, 2e étage",
     "p_et3_s5": "Documents perdus depuis cinq semaines, 3e étage",
+    "p_et4_s1": "Documents perdus depuis une semaine, Zèbre",
+    "p_et4_s3": "Documents perdus depuis trois semaines, Zèbre",
+    "p_et4_s5": "Documents perdus depuis cinq semaines, Zèbre",
     "aazzz": "Contentieux, personnes à appeler",
     "bbzzz": "Contentieux, titres de recettes à créer",
     "tzzzz": "Réservations reparties en rayons",
@@ -374,18 +377,20 @@ _EXPIREES_PARAMS = {
     "e4zzz": ("BUS", "0", "1"),
 }
 
-# Rapport SQL Koha consolidé pour les documents perdus (p_et0_s1..p_et3_s5) :
+# Rapport SQL Koha consolidé pour les documents perdus (p_et0_s1..p_et4_s5) :
 # remplace 15 rapports quasi-identiques (WS_perdus_{une,trois,cinq}_semaines_
 # et{0..3} + variante Bus), qui ne différaient que par la localisation et le
 # nombre de semaines (<<Semaines>> dans YEARWEEK(... - INTERVAL <<Semaines>>
 # WEEK)). Pas de risque de fan-out titre ici (jointure directe sur items, pas
-# sur reserves/biblionumber comme pour dispo/trait) : le Bus pourrait passer
-# par ce même rapport sans rapport dédié, simplement non exposé pour l'instant
-# (aucune clé p_et4_s* dans _LISTE_TITRES).
+# sur reserves/biblionumber comme pour dispo/trait) : le Zèbre (et4, code Koha
+# BUS1A/homebranch BUS — même site que le "Bus" de dispo/trait) passe par ce
+# même rapport, pas besoin d'un rapport dédié comme _RAPPORT_DISPO_BUS_ID.
 # NB : avant cette consolidation, "p_et0_s1".."p_et3_s1" (depuis une semaine)
 # pointaient par erreur vers les rapports "cinq semaines" (152-155) ; les
 # rapports "trois"/"cinq" semaines existaient déjà côté Koha mais n'étaient
-# jamais câblés ici (d'où le "gap" precedemment repéré dans le README).
+# jamais câblés ici (d'où le "gap" precedemment repéré dans le README). Le
+# site Zèbre (et4) existait dans l'ancien liste.pl Perl (type=perduA/B/C,
+# etage=4) mais n'avait jamais été porté ici avant son ajout après coup.
 _RAPPORT_PERDUS_ID = "340"
 
 # Clé -> (codes de localisation, nombre de semaines)
@@ -394,14 +399,17 @@ _PERDUS_PARAMS = {
     "p_et1_s1": (["MED1A"], "1"),
     "p_et2_s1": (["MED2A", "MED2C"], "1"),
     "p_et3_s1": (_MED3_LOCATIONS, "1"),
+    "p_et4_s1": (["BUS1A"], "1"),
     "p_et0_s3": (["MED0C"], "3"),
     "p_et1_s3": (["MED1A"], "3"),
     "p_et2_s3": (["MED2A", "MED2C"], "3"),
     "p_et3_s3": (_MED3_LOCATIONS, "3"),
+    "p_et4_s3": (["BUS1A"], "3"),
     "p_et0_s5": (["MED0C"], "5"),
     "p_et1_s5": (["MED1A"], "5"),
     "p_et2_s5": (["MED2A", "MED2C"], "5"),
     "p_et3_s5": (_MED3_LOCATIONS, "5"),
+    "p_et4_s5": (["BUS1A"], "5"),
 }
 
 _LISTE_TEMPLATES = {
