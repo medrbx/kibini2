@@ -1,0 +1,23 @@
+# Rapports statistiques RBX
+# m h  dom mon dow   command
+
+SHELL=/bin/bash
+BASH_ENV=~/.bashrc_conda
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+MAILTO=fpichenot@ville-roubaix.fr
+
+# Chaque matin, on lance les scripts de mise à jour de statdb
+00 03 * * * conda activate kibini; bash /home/kibini/kibini2/kibini/crontab_lanceur.sh; conda deactivate
+
+# Chaque matin, on lance l'intégration des entrées
+00 08 * * * conda activate kibini; python /home/kibini/kibini2/kibini/data_entrees_opteio.py --last 1; conda deactivate
+
+
+# Chaque matin, on vérifie si des autorités doivent être dédoublonnées
+#30 08 * * * conda activate kibini; python /home/kibini/kibini2/kibini/adm_vendangeur_auth2dedupl.py; conda deactivate
+
+# Chaque mardi, on met à jour les notebooks
+36 13 * * 2 conda activate kibini; cd /home/kibini/kibini2 ; bash notebook2html.sh; conda deactivate
+
+# Chaque soir, on met à jour les adresses des adhérents modifiés dans la journée
+#30 19 * * * /home/kibini/kibini_prod/tools/ADM_update_address.pl
