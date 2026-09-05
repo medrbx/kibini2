@@ -154,7 +154,7 @@ La webapp tourne en production sur une machine distincte de l'environnement de d
 
 ```bash
 # depuis kibini2/kibini, env kibini-web activé
-gunicorn "webapp.app:create_app()" --workers 3 --bind 0.0.0.0:1793
+gunicorn "webapp.app:create_app()" --workers 3 --bind 0.0.0.0:1789
 ```
 
 Géré par un service **systemd nommé `kibini-web`** (redémarrage automatique en cas de crash) :
