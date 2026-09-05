@@ -36,21 +36,37 @@ kibini2/
 └── notebook2html*.sh         # exécutent les notebooks et publient leur rendu HTML (3 variantes, voir plus bas)
 ```
 
+## `kibini/conf/crontab.txt` — crontab système
+
+Fichier source de la crontab installée en prod sur le compte `kibini` (`crontab conf/crontab.txt`, resynchronisation manuelle — aucun mécanisme n'applique automatiquement ce fichier au `crontab` système, à vérifier/réinstaller après modification). `MAILTO=fpichenot@ville-roubaix.fr` : la sortie/erreur de chaque job est envoyée par mail à cette adresse.
+
+| Horaire | Commande | Rôle |
+|---|---|---|
+| Tous les jours à 03h00 | `bash crontab_lanceur.sh` | Orchestration quotidienne du pipeline data (détail ci-dessous) |
+| Tous les jours à 08h00 | `python data_entrees_opteio.py --last 1` | Intégration des entrées Opteio (fréquentation) de la veille — job dédié, **sorti de `crontab_lanceur.sh`** (voir note ci-dessous) |
+| Chaque mardi à 13h36 | `bash notebook2html.sh` | Régénération et publication HTML des notebooks |
+| *(commenté, désactivé)* | `adm_vendangeur_auth2dedupl.py` à 08h30 | Dédoublonnage d'autorités |
+| *(commenté, désactivé)* | `ADM_update_address.pl` à 19h30 | Mise à jour des adresses adhérents (script Perl historique de `kibini_prod`) |
+
+### Opteio sorti de `crontab_lanceur.sh`
+
+`data_entrees_opteio.py --last 1` n'est plus appelé depuis `crontab_lanceur.sh` : la ligne y est présente mais **commentée** (`crontab_lanceur.sh:52-54`) et remplacée par l'entrée dédiée de `crontab.txt` à 08h00 (voir tableau ci-dessus). Raison indiquée en commentaire dans le script : le service Opteio est indisponible la nuit et le week-end, ce qui rendait son appel peu fiable dans l'enchaînement de 03h00 — il est donc lancé séparément, plus tard dans la matinée.
+
 ## `kibini/crontab_lanceur.sh` — orchestration cron
 
-Point d'entrée unique lancé par une tâche cron (fréquence non fixée dans le script lui-même — à vérifier dans la crontab système, mais conçu pour tourner une fois par jour). Active l'environnement conda `kibini`, puis exécute une série de scripts selon un calendrier codé en dur avec des tests sur `date +%u`/`date +%d` :
+Lancé quotidiennement à 03h00 par la crontab système (voir ci-dessus). Active l'environnement conda `kibini`, puis exécute une série de scripts selon un calendrier codé en dur avec des tests sur `date +%u`/`date +%d` :
 
 | Fréquence | Scripts exécutés | Rôle |
 |---|---|---|
 | **Chaque jour** | `data_load_koha_prod.py` | Copie + décompression + chargement du dump `koha_prod` du jour |
-| **Chaque jour** | `data_issues.py`, `data_reserves.py`, `data_freq_etude.py`, `data_entrees_opteio.py --last 1`, `data_exemplaires.py`, `data_ano.py`, `data_prets.py` | Incorporation quotidienne dans `statdb` : prêts/retours, réservations, fréquentation salle d'étude, entrées (capteurs Opteio), exemplaires, anonymisation, prêts (schéma récent) |
+| **Chaque jour** | `data_issues.py`, `data_reserves.py`, `data_freq_etude.py`, `data_exemplaires.py`, `data_ano.py`, `data_prets.py` | Incorporation quotidienne dans `statdb` : prêts/retours, réservations, fréquentation salle d'étude, exemplaires, anonymisation, prêts (schéma récent) |
 | **Dernier mercredi du mois** (`dayofweek==3` ET `dayofmonthnextweek < dayofmonth`) | `data_adherents.py` | Cliché mensuel des données adhérents |
 | **Chaque vendredi** | `adm_itemsNonRestituesPlus.py` | Liste les documents à passer en "non restitués plus" |
 | **Le 1er du mois** | `adm_itemsPerdusPretendusRendus2acquereurs.py` | Envoie aux acquéreurs la liste des documents sortis des collections (perdus/prétendus rendus/non restitués) |
 | **Chaque mercredi** | `adm_items2del2adm.py`, `adm_items2delb2adm.py`, `adm_itemsRetards2adm.py`, `adm_itemsPerdus2adm.py`, `adm_itemsPretendusRendus2adm.py`, `adm_itemsNonRestituesPlus.py`, `data_sauv_bdd.py` | Listes de gestion des exemplaires à traiter (à supprimer, en retard, perdus...) + sauvegarde `mysqldump` hebdomadaire de `statdb` |
 | **Chaque jour** | `find ... -ctime +30 -exec rm` | Purge des logs cron de plus de 30 jours (`log/crontab/lanceur_*.log`) |
 
-Chaque script est autonome, invocable indépendamment (`python kibini/data_issues.py`) pour du rattrapage ou du débogage. Le job `adm_itemsNonRestituesPlus_retours.py` du quotidien est présent dans le script mais **commenté** (désactivé).
+Chaque script est autonome, invocable indépendamment (`python kibini/data_issues.py`) pour du rattrapage ou du débogage. Le job `adm_itemsNonRestituesPlus_retours.py` du quotidien est présent dans le script mais **commenté** (désactivé), de même que `data_entrees_opteio.py` (voir note ci-dessus).
 
 ## `kibini/data_*.py` — collecte cron
 
