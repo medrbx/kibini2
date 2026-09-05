@@ -106,7 +106,9 @@ def get_today_entrance():
             WHERE DATE(datetime_entree) = CURDATE()
             ORDER BY datetime_entree DESC
         """)).mappings().all()
-    return [dict(r) for r in rows]
+    # sortie/duree sont NULL tant que le lecteur n'est pas sorti ; sans ce
+    # remplacement, Jinja affiche la chaîne "None" dans le tableau.
+    return [{k: ("" if v is None else v) for k, v in r.items()} for r in rows]
 
 
 def get_past_entrances():
