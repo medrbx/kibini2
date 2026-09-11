@@ -8,7 +8,7 @@ mkdir -p "$data_dir"
 cd "$kibini2"
 
 # Execution et publication d'un notebook en particulier
-for filename in notebook_kibini2_med_evolution_prets notebook_kibini2_med_evolution_retours notebook_kibini2_med_evolution_entrees
+for filename in notebook_kibini2_med_evolution_prets notebook_kibini2_med_evolution_retours notebook_kibini2_med_evolution_resas notebook_kibini2_med_evolution_entrees
 
 
 do
