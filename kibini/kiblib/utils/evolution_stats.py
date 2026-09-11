@@ -22,6 +22,7 @@ class EvolutionActivite:
         self.df[f'nombre_{self.df_subject}'] = self.df[self.value_col] if self.value_col else 1
         self.df['semaine'] = pd.DatetimeIndex(self.df[self.df.columns[0]]).week
         self.df['annee'] = pd.DatetimeIndex(self.df[self.df.columns[0]]).year
+        self.df_full = self.df
         self.df = self.df[self.df['annee'].isin([year_2,year_1,year])]
         #return(self.df)
 
@@ -47,7 +48,7 @@ class EvolutionActivite:
         return(stats_4lastweek)
 
     def evolution_by_year(self):
-        stats_year = self.df.groupby('annee')[self.df.columns[2]].sum().reset_index()
+        stats_year = self.df_full.groupby('annee')[self.df_full.columns[2]].sum().reset_index()
         return(stats_year)
 
     def distinct_evolution_byweek_thisyear(self):
@@ -67,8 +68,8 @@ class EvolutionActivite:
         return(distinct_stats_4lastweek)
 
     def distinct_evolution_by_year(self):
-        distinct_stats_year = self.df.groupby('annee')[self.df.columns[1]].nunique().reset_index()
-        distinct_stats_year = distinct_stats_year.rename(columns={self.df.columns[1]:f"nombre_usagers_distincts_{self.df_subject}"})
+        distinct_stats_year = self.df_full.groupby('annee')[self.df_full.columns[1]].nunique().reset_index()
+        distinct_stats_year = distinct_stats_year.rename(columns={self.df_full.columns[1]:f"nombre_usagers_distincts_{self.df_subject}"})
         return(distinct_stats_year)
 
 
@@ -84,10 +85,10 @@ class EvolutionActivite:
         return(f"Evolution du nombre de {self.text} par an depuis 2019")
 
     def titre_graph4(self):
-      return("Evolution du nombre de personnes distinctes utilisant le service par semaine en year")
+      return(f"Evolution du nombre de personnes distinctes utilisant le service par semaine en {year}")
 
     def titre_graph5(self):
       return("Evolution du nombre de personnes distinctes sur les 4 dernieres semaines\nComparatif annuel")
 
     def titre_graph6(self):
-      return(f"Evolution du nombre de personnes distinctes utilisant le service par an depuis {year_2}")
+      return(f"Evolution du nombre de personnes distinctes utilisant le service par an depuis 2019")
