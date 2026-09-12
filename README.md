@@ -137,6 +137,20 @@ Reconstitue ce jeu à partir de `statdb` pour prolonger l'historique après 2020
 python stat_affluence2oa.py --start-date 2021-01-01 --end-date 2026-01-01
 ```
 
+### Granularités infra-horaires (`--granularite <minutes>`)
+
+`--granularite` prend un nombre de minutes (défaut : `60`) - doit diviser 60 exactement (30, 20, 15, 12, 10, 6, 5...), sinon rejeté explicitement, pour que les créneaux restent alignés sur l'heure. Toutes les requêtes groupent par un créneau (`HOUR(...)` quand `--granularite 60`, sinon `HOUR(...)*DIVISIONS_PAR_HEURE + FLOOR(MINUTE(...)/PAS)`) via `expr_heure()`/`expr_heure_det()` - un seul jeu de requêtes pour toutes les granularités, pas de duplication. Fichier de sortie nommé automatiquement à partir du paramètre (`affluence_grand_plage_h_par_h.csv` pour 60, `..._30_min.csv` pour 30, `..._10_min.csv` pour 10...).
+
+**`--start-date` doit être ≥ 2021-01-01** dès que `--granularite` ≠ 60 (refusé sinon, erreur explicite) : le jeu publié à l'origine (2014-2020) n'a que des heures pleines - impossible d'en tirer une vraie subdivision sans l'inventer - et `statdb.stat_issues` n'a de toute façon pas d'historique fiable avant ~2019 (voir plus haut). Pas de script de concaténation équivalent à `stat_affluence_concat.py` pour ces granularités : chaque fichier ne couvre que 2021+, volontairement, pour rester simple plutôt que de mélanger plusieurs granularités dans un même fichier.
+
+**Cas particulier `entrees`** : `statdb.stat_entrees` est déjà agrégée à l'heure pleine par `data_entrees_opteio.py` (minute toujours à 00) - sans la précision infra-horaire nécessaire en dessous de l'heure. `entrees` est donc dérivée de `statdb.stat_entrees_det` dès que `--granularite` ≠ 60 (déjà interrogée par ailleurs pour `occupation`), au lieu de `statdb.stat_entrees` (source inchangée, déjà validée, à `--granularite 60`).
+
+```bash
+python stat_affluence2oa.py --start-date 2021-01-01 --end-date 2026-09-13 --granularite 30
+python stat_affluence2oa.py --start-date 2021-01-01 --end-date 2026-09-13 --granularite 15
+python stat_affluence2oa.py --start-date 2021-01-01 --end-date 2026-09-13 --granularite 10
+```
+
 ### Anomalie identifiée sur les données 2021-2025 : prêts groupés hors amplitude d'ouverture
 
 Analyse du fichier produit par `stat_affluence2oa.py` sur 2021-2025 : 7 créneaux avec des `prets` en dehors de toute amplitude plausible (3h ou 21h), ex. **70 prêts en 17 secondes à 3h01 le 2021-02-04**, répartis sur 7 adhérents différents (jusqu'à 17 exemplaires pour un seul). Vérifié dans `statdb.stat_issues` : toujours `branch=MED`, catégories d'adhérent normales (BIBL/MEDA/MEDC/MEDP/CSVT, pas de code collectivité), plusieurs adhérents et exemplaires distincts par lot - donc de **vrais prêts**, pas un artefact du pipeline Kibini (`data_issues.py` copie `issuedate` tel quel depuis `koha_prod`, ne le réécrit jamais). La vitesse (des dizaines de prêts sur plusieurs comptes en quelques secondes) exclut une saisie manuelle : traitement automatisé côté Koha ou service de portage/prêt à distance préparé en lot, cause exacte non identifiée.

@@ -27,11 +27,44 @@ def parse_args():
     parser.add_argument(
         "--end-date", required=True,
         help="Fin de la plage à traiter (YYYY-MM-DD), exclue.")
+    parser.add_argument(
+        "--granularite", type=int, default=60, metavar="MINUTES",
+        help="Pas de temps des créneaux, en minutes (défaut : 60). Doit "
+             "diviser 60 exactement (30, 20, 15, 12, 10, 6, 5...).")
     args = parser.parse_args()
-    return date.fromisoformat(args.start_date), date.fromisoformat(args.end_date)
+    start_date = date.fromisoformat(args.start_date)
+    end_date = date.fromisoformat(args.end_date)
+    if not (1 <= args.granularite <= 60) or 60 % args.granularite != 0:
+        parser.error(
+            f"--granularite {args.granularite} invalide : doit être un "
+            "diviseur de 60 entre 1 et 60 (30, 20, 15, 12, 10, 6, 5...), "
+            "pour que les créneaux restent alignés sur l'heure."
+        )
+    if args.granularite != 60 and start_date < date(2021, 1, 1):
+        parser.error(
+            f"--granularite {args.granularite} n'est fiable qu'à partir de "
+            "2021-01-01 : le jeu publié à l'origine (2014-2020) n'a que des "
+            "heures pleines, et statdb.stat_issues n'a pas d'historique "
+            "fiable avant ~2019 - voir README."
+        )
+    return start_date, end_date, args.granularite
 
 
-DATE_DEBUT, DATE_FIN = parse_args()
+DATE_DEBUT, DATE_FIN, PAS = parse_args()
+DIVISIONS_PAR_HEURE = 60 // PAS
+NOM_FICHIER = (
+    "affluence_grand_plage_h_par_h.csv" if PAS == 60
+    else f"affluence_grand_plage_{PAS}_min.csv")
+
+
+def expr_heure(colonne):
+    """Expression SQL du créneau (index entier, 0 à 24*DIVISIONS_PAR_HEURE-1) -
+    HOUR() seul quand PAS == 60, sinon HOUR()*DIVISIONS_PAR_HEURE + la
+    subdivision de l'heure correspondant au pas choisi."""
+    if PAS == 60:
+        return f"HOUR({colonne})"
+    return f"(HOUR({colonne}) * {DIVISIONS_PAR_HEURE} + FLOOR(MINUTE({colonne}) / {PAS}))"
+
 
 engine = DbConn().create_engine()
 
@@ -45,13 +78,13 @@ engine = DbConn().create_engine()
 # les retours (boîte de retour) sont possibles ce jour-là - tout prêt ou toute
 # connexion poste enregistrés un lundi sont un test, pas de la fréquentation.
 prets = pd.read_sql(
-    """
-    SELECT DATE(issuedate) AS date, HOUR(issuedate) AS heure, COUNT(*) AS prets
+    f"""
+    SELECT DATE(issuedate) AS date, {expr_heure('issuedate')} AS heure, COUNT(*) AS prets
     FROM statdb.stat_issues
     WHERE branch = 'MED' AND issuedate >= %(debut)s AND issuedate < %(fin)s
       AND HOUR(issuedate) BETWEEN 9 AND 19
       AND DAYOFWEEK(issuedate) != 2
-    GROUP BY DATE(issuedate), HOUR(issuedate)
+    GROUP BY DATE(issuedate), {expr_heure('issuedate')}
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
@@ -63,34 +96,34 @@ prets = pd.read_sql(
 # une règle générale comme pour les prêts groupés (voir plus haut), faute de
 # récurrence constatée à ce jour.
 retours = pd.read_sql(
-    """
-    SELECT DATE(returndate) AS date, HOUR(returndate) AS heure, COUNT(*) AS retours
+    f"""
+    SELECT DATE(returndate) AS date, {expr_heure('returndate')} AS heure, COUNT(*) AS retours
     FROM statdb.stat_issues
     WHERE branch = 'MED' AND returndate >= %(debut)s AND returndate < %(fin)s
       AND NOT (DATE(returndate) = '2026-03-30' AND HOUR(returndate) IN (18, 19))
-    GROUP BY DATE(returndate), HOUR(returndate)
+    GROUP BY DATE(returndate), {expr_heure('returndate')}
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
 connexions = pd.read_sql(
-    """
-    SELECT DATE(heure_deb) AS date, HOUR(heure_deb) AS heure, COUNT(*) AS connexions_postes
+    f"""
+    SELECT DATE(heure_deb) AS date, {expr_heure('heure_deb')} AS heure, COUNT(*) AS connexions_postes
     FROM statdb.stat_webkiosk
     WHERE heure_deb >= %(debut)s AND heure_deb < %(fin)s
       AND DAYOFWEEK(heure_deb) != 2
-    GROUP BY DATE(heure_deb), HOUR(heure_deb)
+    GROUP BY DATE(heure_deb), {expr_heure('heure_deb')}
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
 # Même filtre du lundi que pour connexions_postes : la médiathèque étant
 # fermée au public, une connexion wifi ce jour-là est un test.
 connexions_wifi = pd.read_sql(
-    """
-    SELECT DATE(start_wifi) AS date, HOUR(start_wifi) AS heure, COUNT(*) AS connexions_wifi
+    f"""
+    SELECT DATE(start_wifi) AS date, {expr_heure('start_wifi')} AS heure, COUNT(*) AS connexions_wifi
     FROM statdb.stat_wifi
     WHERE start_wifi >= %(debut)s AND start_wifi < %(fin)s
       AND DAYOFWEEK(start_wifi) != 2
-    GROUP BY DATE(start_wifi), HOUR(start_wifi)
+    GROUP BY DATE(start_wifi), {expr_heure('start_wifi')}
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
@@ -101,13 +134,13 @@ connexions_wifi = pd.read_sql(
 # introduire une ligne fantôme dans la jointure externe si rien d'autre n'a
 # d'activité ce créneau-là.
 impressions = pd.read_sql(
-    """
-    SELECT DATE(date_impression) AS date, HOUR(date_impression) AS heure,
+    f"""
+    SELECT DATE(date_impression) AS date, {expr_heure('date_impression')} AS heure,
         SUM(nb_pages_imprimees) AS impressions
     FROM statdb.stat_impressions
     WHERE date_impression >= %(debut)s AND date_impression < %(fin)s
       AND DAYOFWEEK(date_impression) != 2
-    GROUP BY DATE(date_impression), HOUR(date_impression)
+    GROUP BY DATE(date_impression), {expr_heure('date_impression')}
     HAVING SUM(nb_pages_imprimees) > 0
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
@@ -116,33 +149,24 @@ impressions = pd.read_sql(
 # webapp/services.py::is_entrance() - pas un import CSV différé comme
 # webkiosk/wifi/impressions). Même filtre du lundi que les autres colonnes.
 frequentation_etude = pd.read_sql(
-    """
-    SELECT DATE(datetime_entree) AS date, HOUR(datetime_entree) AS heure,
+    f"""
+    SELECT DATE(datetime_entree) AS date, {expr_heure('datetime_entree')} AS heure,
         COUNT(*) AS frequentation_etude
     FROM statdb.stat_freq_etude
     WHERE datetime_entree >= %(debut)s AND datetime_entree < %(fin)s
       AND DAYOFWEEK(datetime_entree) != 2
-    GROUP BY DATE(datetime_entree), HOUR(datetime_entree)
+    GROUP BY DATE(datetime_entree), {expr_heure('datetime_entree')}
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
-# entrees = comptage de passages physiques (capteur Opteio), déjà agrégé à
-# l'heure dans stat_entrees. Même filtre du lundi que les autres colonnes.
-# HAVING > 0 : l'API Opteio distingue parfois entrées et sorties sur deux
-# lignes séparées (cf. data_entrees_opteio.py) - un événement "sortie seule"
-# crée une ligne stat_entrees avec entrees=0, qui introduirait sinon une
-# ligne fantôme dans la jointure externe (cause confirmée de 38 lignes
-# entièrement à zéro sur un premier essai).
-entrees = pd.read_sql(
-    """
-    SELECT DATE(datetime) AS date, HOUR(datetime) AS heure, SUM(entrees) AS entrees
-    FROM statdb.stat_entrees
-    WHERE datetime >= %(debut)s AND datetime < %(fin)s
-      AND DAYOFWEEK(datetime) != 2
-    GROUP BY DATE(datetime), HOUR(datetime)
-    HAVING SUM(entrees) > 0
-    """,
-    con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
+# statdb.stat_entrees_det a ses propres colonnes entières heure/minute
+# (posées à l'insertion par data_entrees_opteio.py), pas un datetime à passer
+# à HOUR()/MINUTE() - expression du créneau dédiée.
+def expr_heure_det():
+    if PAS == 60:
+        return "heure"
+    return f"(heure * {DIVISIONS_PAR_HEURE} + FLOOR(minute / {PAS}))"
+
 
 # occupation = nb de personnes présentes dans l'établissement, dérivé du
 # détail brut par capteur/minute (statdb.stat_entrees_det). Calcul et
@@ -151,15 +175,45 @@ entrees = pd.read_sql(
 # kiblib.utils.frequentation, réutilisable ailleurs (notebook, autre
 # script). Même filtre du lundi que les autres colonnes.
 entrees_det = pd.read_sql(
-    """
-    SELECT jour AS date, heure, SUM(entree) AS entree, SUM(sortie) AS sortie
+    f"""
+    SELECT jour AS date, {expr_heure_det()} AS heure,
+        SUM(entree) AS entree, SUM(sortie) AS sortie
     FROM statdb.stat_entrees_det
     WHERE datetime >= %(debut)s AND datetime < %(fin)s
       AND DAYOFWEEK(datetime) != 2
-    GROUP BY jour, heure
+    GROUP BY jour, {expr_heure_det()}
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 occupation = calculer_occupation(entrees_det)
+
+# entrees = comptage de passages physiques (capteur Opteio). En granularité
+# heure, vient de statdb.stat_entrees (déjà agrégée à l'heure par
+# data_entrees_opteio.py) - source validée, laissée telle quelle. En
+# granularité plus fine (demi-heure, quart-heure...), stat_entrees n'a pas
+# la précision infra-horaire nécessaire (toujours à la minute 00) : dérivée
+# de statdb.stat_entrees_det (déjà interrogée ci-dessus pour occupation) à
+# la place.
+# HAVING/filtre > 0 dans les deux cas : l'API Opteio distingue parfois
+# entrées et sorties sur deux lignes séparées (cf. data_entrees_opteio.py) -
+# un événement "sortie seule" donne entree=0, qui introduirait sinon une
+# ligne fantôme dans la jointure externe (cause confirmée de 38 lignes
+# entièrement à zéro sur un premier essai).
+if PAS == 60:
+    entrees = pd.read_sql(
+        """
+        SELECT DATE(datetime) AS date, HOUR(datetime) AS heure, SUM(entrees) AS entrees
+        FROM statdb.stat_entrees
+        WHERE datetime >= %(debut)s AND datetime < %(fin)s
+          AND DAYOFWEEK(datetime) != 2
+        GROUP BY DATE(datetime), HOUR(datetime)
+        HAVING SUM(entrees) > 0
+        """,
+        con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
+else:
+    entrees = (
+        entrees_det[entrees_det["entree"] > 0][["date", "heure", "entree"]]
+        .rename(columns={"entree": "entrees"})
+        .copy())
 
 df = prets.merge(retours, on=["date", "heure"], how="outer")
 df = df.merge(connexions, on=["date", "heure"], how="outer")
@@ -190,7 +244,9 @@ df["date"] = pd.to_datetime(df["date"])
 df["annee"] = df["date"].dt.year
 df["jour"] = df["date"].dt.day
 df["mois"] = df["date"].dt.month
-df["heure"] = df["heure"].apply(lambda h: f"{h:02d}:00:00")
+df["heure"] = df["heure"].apply(
+    lambda h: f"{h // DIVISIONS_PAR_HEURE:02d}:{(h % DIVISIONS_PAR_HEURE) * PAS:02d}:00")
+fichier_sortie = f"data/openData/{NOM_FICHIER}"
 df["date"] = df["date"].dt.strftime("%Y-%m-%d")
 
 df = df[[
@@ -199,4 +255,4 @@ df = df[[
     "frequentation_etude", "entrees", "occupation"]]
 df = df.sort_values(["date", "heure"])
 
-df.to_csv("data/openData/affluence_grand_plage_h_par_h.csv", index=False)
+df.to_csv(fichier_sortie, index=False)
