@@ -1,6 +1,7 @@
 import pandas as pd
 
 from kiblib.utils.db import DbConn
+from kiblib.utils.frequentation import calculer_occupation
 
 # Concatène le jeu open data "affluence horaire" en 2 parties, sans reconstruire
 # ce qui est déjà publié sur data.lillemetropole.fr (statdb.stat_issues n'a de
@@ -17,15 +18,20 @@ from kiblib.utils.db import DbConn
 #   statdb.stat_impressions (profondeur dès 2015, 2014 sort à 0) - le service
 #   n'existait probablement pas encore ces années-là, à confirmer si besoin -
 #   et statdb.stat_entrees (profondeur dès 2009, aucune lacune sur 2014-2020).
+#   occupation reconstruite depuis statdb.stat_entrees_det (aussi profondeur
+#   dès 2009, aucune lacune) - calcul et correction dans
+#   kiblib.utils.frequentation (cumul entrées-sorties, écart de fermeture
+#   réparti linéairement dans le temps).
 # - 2021-01-01 -> aujourd'hui : extraction fraîche produite par
-#   stat_affluence2oa.py (connexions_wifi/impressions/entrees déjà incluses).
+#   stat_affluence2oa.py (toutes les colonnes ci-dessus déjà incluses).
 FICHIER_DATA_MEL = "data/openData/data/affluence_data_mel_2014-2020_brut.csv"
 FICHIER_NOUVEAU = "data/openData/affluence_grand_plage_h_par_h.csv"
 FICHIER_SORTIE = "data/openData/affluence_grand_plage_h_par_h_complet.csv"
 
 COLONNES = [
     "date", "annee", "jour", "mois", "heure",
-    "retours", "prets", "connexions_postes", "connexions_wifi", "impressions", "entrees"]
+    "retours", "prets", "connexions_postes", "connexions_wifi", "impressions", "entrees",
+    "occupation"]
 
 data_mel = pd.read_csv(FICHIER_DATA_MEL)
 if "FID" in data_mel.columns:
@@ -99,6 +105,19 @@ entrees = pd.read_sql(
     con=engine, params={"debut": DEBUT, "fin": FIN})
 entrees["date"] = pd.to_datetime(entrees["date"])
 
+entrees_det = pd.read_sql(
+    """
+    SELECT jour AS date, heure, SUM(entree) AS entree, SUM(sortie) AS sortie
+    FROM statdb.stat_entrees_det
+    WHERE datetime >= %(debut)s AND datetime < %(fin)s
+      AND DAYOFWEEK(datetime) != 2
+    GROUP BY jour, heure
+    """,
+    con=engine, params={"debut": DEBUT, "fin": FIN})
+entrees_det["date"] = pd.to_datetime(entrees_det["date"])
+
+occupation = calculer_occupation(entrees_det)
+
 # heure_int (calculé plus haut) sert de clé de jointure - data_mel a 'heure'
 # au format 'HH:00:00' (texte), les extractions ci-dessus au format entier
 # (issu de HOUR() en SQL). Jointures externes (outer) : un créneau où seul
@@ -134,6 +153,20 @@ masque_tout_zero = (
     & (data_mel["connexions_postes"] == 0) & (data_mel["connexions_wifi"] == 0)
     & (data_mel["impressions"] == 0) & (data_mel["entrees"] == 0))
 data_mel = data_mel[~masque_tout_zero]
+
+# occupation en jointure gauche, après le filtre "tout zéro" ci-dessus :
+# contrairement aux autres métriques, 0 y est une valeur légitime (bâtiment
+# vide en début/fin de journée), elle ne doit donc pas participer à ce
+# filtre ni créer de nouvelles lignes par elle-même. data_mel['date'] est
+# déjà une chaîne 'AAAA-MM-JJ' à ce stade (voir plus haut) - occupation
+# reformatée à l'identique pour la jointure.
+occupation["date"] = occupation["date"].dt.strftime("%Y-%m-%d")
+data_mel["heure_int"] = data_mel["heure"].str[:2].astype(int)
+data_mel = data_mel.merge(
+    occupation.rename(columns={"heure": "heure_int"}),
+    on=["date", "heure_int"], how="left")
+data_mel["occupation"] = data_mel["occupation"].fillna(0).astype(int)
+data_mel = data_mel.drop(columns=["heure_int"])
 
 nouveau = pd.read_csv(FICHIER_NOUVEAU)
 nouveau = nouveau[nouveau["date"] >= "2021-01-01"]

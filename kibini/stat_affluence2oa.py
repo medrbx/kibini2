@@ -4,6 +4,7 @@ from datetime import date
 import pandas as pd
 
 from kiblib.utils.db import DbConn
+from kiblib.utils.frequentation import calculer_occupation
 
 # Reconstitue le jeu "affluence horaire" publié sur data.lillemetropole.fr
 # (ville_roubaix:affluence_et_activites_de_la_grand_plage_h_par_h_depuis_2014),
@@ -121,6 +122,23 @@ entrees = pd.read_sql(
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
+# occupation = nb de personnes présentes dans l'établissement, dérivé du
+# détail brut par capteur/minute (statdb.stat_entrees_det). Calcul et
+# correction (l'occupation brute ne revient pas exactement à 0 en fin de
+# journée à cause de biais de comptage du capteur) dans
+# kiblib.utils.frequentation, réutilisable ailleurs (notebook, autre
+# script). Même filtre du lundi que les autres colonnes.
+entrees_det = pd.read_sql(
+    """
+    SELECT jour AS date, heure, SUM(entree) AS entree, SUM(sortie) AS sortie
+    FROM statdb.stat_entrees_det
+    WHERE datetime >= %(debut)s AND datetime < %(fin)s
+      AND DAYOFWEEK(datetime) != 2
+    GROUP BY jour, heure
+    """,
+    con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
+occupation = calculer_occupation(entrees_det)
+
 df = prets.merge(retours, on=["date", "heure"], how="outer")
 df = df.merge(connexions, on=["date", "heure"], how="outer")
 df = df.merge(connexions_wifi, on=["date", "heure"], how="outer")
@@ -138,6 +156,13 @@ for c in ["prets", "retours", "connexions_postes", "connexions_wifi", "impressio
 masque_tout_zero = (df[["prets", "retours", "connexions_postes", "connexions_wifi", "impressions", "entrees"]] == 0).all(axis=1)
 df = df[~masque_tout_zero]
 
+# occupation en jointure gauche, après le filtre "tout zéro" ci-dessus :
+# contrairement aux autres métriques, 0 y est une valeur légitime (bâtiment
+# vide à l'ouverture/fermeture), elle ne doit donc pas participer à ce
+# filtre ni créer de nouvelles lignes par elle-même.
+df = df.merge(occupation, on=["date", "heure"], how="left")
+df["occupation"] = df["occupation"].fillna(0).astype(int)
+
 df["date"] = pd.to_datetime(df["date"])
 df["annee"] = df["date"].dt.year
 df["jour"] = df["date"].dt.day
@@ -147,7 +172,8 @@ df["date"] = df["date"].dt.strftime("%Y-%m-%d")
 
 df = df[[
     "date", "annee", "jour", "mois", "heure",
-    "retours", "prets", "connexions_postes", "connexions_wifi", "impressions", "entrees"]]
+    "retours", "prets", "connexions_postes", "connexions_wifi", "impressions", "entrees",
+    "occupation"]]
 df = df.sort_values(["date", "heure"])
 
 df.to_csv("data/openData/affluence_grand_plage_h_par_h.csv", index=False)

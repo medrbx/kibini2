@@ -173,6 +173,27 @@ Absente du jeu publié à l'origine (jamais suivie à l'époque). `statdb.stat_w
 
 **Anomalie relevée, non expliquée** : `entrees` chute nettement en 2019 (moyenne ~37/h) par rapport à 2018 (~82/h) et 2017 (~66/h), avant la chute attendue de 2020 (COVID, ~15/h). Le nombre de créneaux couverts ne baisse pourtant pas particulièrement cette année-là - possible changement de capteur/calibration, à vérifier si cette colonne est utilisée pour des comparaisons d'une année sur l'autre.
 
+### Nouvelle colonne `occupation`
+
+Nombre de personnes présentes dans l'établissement, dérivé du détail brut par capteur/minute `statdb.stat_entrees_det` (pas de `statdb.stat_entrees`, déjà agrégé sans le détail nécessaire ici) : `entrées cumulées − sorties cumulées`, tous capteurs confondus, remis à 0 à chaque nouveau jour.
+
+**Problème identifié et corrigé** : ce cumul brut devrait revenir à 0 en fin de journée (personne ne reste dans un bâtiment fermé), mais de légers biais de comptage du capteur (deux personnes détectées comme une seule, rebond compté deux fois, sens mal détecté...) s'accumulent au fil de la journée et empêchent ce retour exact à 0 en pratique. Corrigé en répartissant **linéairement dans le temps** l'écart constaté à la fermeture (résidu = occupation brute au dernier créneau de la journée), puis en plafonnant le résultat à 0 (l'occupation ne peut pas être négative) :
+
+```
+occupation_brute(h)    = cumsum(entrées) - cumsum(sorties), remise à 0 chaque jour
+résidu                 = occupation_brute(dernier créneau du jour)
+occupation_corrigée(h) = occupation_brute(h) - résidu × (h - premier créneau) / (dernier créneau - premier créneau)
+occupation_finale(h)   = max(0, round(occupation_corrigée(h)))
+```
+
+Vérifié sur un cas simulé (résidu de +7 sur une journée 9h-18h) : la correction linéaire ramène bien l'occupation à exactement 0 au dernier créneau, sans jamais passer en négatif entre-temps. Alternative non retenue : répartir l'écart proportionnellement au volume de passages plutôt qu'au temps (pertinent si le biais vient surtout des heures d'affluence) - plus difficile à justifier sans savoir d'où vient le biais du capteur.
+
+Même filtre du lundi que les autres colonnes, mais **`occupation` ne participe pas** au filet de sécurité "ligne entièrement à zéro" des autres métriques : `0` y est une valeur légitime (bâtiment vide en début/fin de journée), contrairement aux autres colonnes où `0` partout signale une ligne fantôme.
+
+**Profondeur historique de `stat_entrees_det` vérifiée** : dès 2009 comme `stat_entrees`, aucune lacune sur 2014-2020 malgré la crainte initiale (cette table de détail est présentée comme une nouveauté du portage Python dans la docstring de `data_entrees_opteio.py` - "le détail que `statdb_entrees.pl` ne conservait pas" - mais l'historique a bien été conservé). Reconstruite dans `stat_affluence_concat.py` sur 2014-2020, même principe.
+
+**Calcul factorisé, réutilisable ailleurs** : `corriger_occupation_jour()`/`calculer_occupation()` vivent dans `kiblib/utils/frequentation.py` (pas dupliquées dans les deux scripts) - un notebook ou tout autre script peut faire `from kiblib.utils.frequentation import calculer_occupation` sur un DataFrame `date`/`heure`/`entree`/`sortie` (déjà sommé tous capteurs confondus) pour obtenir la même correction.
+
 ## `kibini/webapp/` — site web Flask
 
 Portage de `kibini_prod/lib/website/dancer.pm` (Dancer2/Perl) et des modules qu'il appelle (`adherents.pm`, `collections/suggestions.pm`, `salleEtude/form.pm`, `action_culturelle.pm`, `action_coop/form.pm`, `liste.pm`).
