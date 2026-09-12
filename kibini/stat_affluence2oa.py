@@ -70,13 +70,26 @@ connexions = pd.read_sql(
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
+# Même filtre du lundi que pour connexions_postes : la médiathèque étant
+# fermée au public, une connexion wifi ce jour-là est un test.
+connexions_wifi = pd.read_sql(
+    """
+    SELECT DATE(start_wifi) AS date, HOUR(start_wifi) AS heure, COUNT(*) AS connexions_wifi
+    FROM statdb.stat_wifi
+    WHERE start_wifi >= %(debut)s AND start_wifi < %(fin)s
+      AND DAYOFWEEK(start_wifi) != 2
+    GROUP BY DATE(start_wifi), HOUR(start_wifi)
+    """,
+    con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
+
 df = prets.merge(retours, on=["date", "heure"], how="outer")
 df = df.merge(connexions, on=["date", "heure"], how="outer")
+df = df.merge(connexions_wifi, on=["date", "heure"], how="outer")
 
 # Contrairement au jeu publié jusqu'ici (cf. README), les créneaux sans
 # activité sont mis à 0 explicitement plutôt que laissés vides - ambiguïté
 # NaN documentée comme point à corriger.
-for c in ["prets", "retours", "connexions_postes"]:
+for c in ["prets", "retours", "connexions_postes", "connexions_wifi"]:
     df[c] = df[c].fillna(0).astype(int)
 
 df["date"] = pd.to_datetime(df["date"])
@@ -86,7 +99,7 @@ df["mois"] = df["date"].dt.month
 df["heure"] = df["heure"].apply(lambda h: f"{h:02d}:00:00")
 df["date"] = df["date"].dt.strftime("%Y-%m-%d")
 
-df = df[["date", "annee", "jour", "mois", "heure", "retours", "prets", "connexions_postes"]]
+df = df[["date", "annee", "jour", "mois", "heure", "retours", "prets", "connexions_postes", "connexions_wifi"]]
 df = df.sort_values(["date", "heure"])
 
 df.to_csv("data/openData/affluence_grand_plage_h_par_h.csv", index=False)

@@ -147,6 +147,18 @@ Ces prêts existent réellement mais ne représentent pas de la fréquentation p
 
 La médiathèque est fermée au public le lundi - seule la boîte de retour reste accessible. Tout `prets`/`connexions_postes` enregistré un lundi est donc un test, pas de la fréquentation réelle. `stat_affluence2oa.py` exclut `DAYOFWEEK(...) = 2` (lundi) des comptages `prets` et `connexions_postes` ; `retours` n'est pas filtré par jour de la semaine.
 
+### `stat_affluence_concat.py` - concaténation avec l'historique déjà publié, et correctif 2020
+
+`statdb.stat_issues` n'ayant pas d'historique avant ~2019 (voir plus haut), 2014-2020 n'est **pas reconstruit** : `stat_affluence_concat.py` reprend tel quel l'export déjà publié sur data.lillemetropole.fr (sauvegardé en local dans `data/openData/data/affluence_data_mel_2014-2020_brut.csv`) et le concatène avec l'extraction fraîche de `stat_affluence2oa.py` à partir du 2021-01-01 (avant cette date exclu, pour ne pas dupliquer/reconstruire ce qui existe déjà).
+
+**Bug confirmé et corrigé au passage** : comparaison mois par mois entre le fichier publié et une extraction fraîche de `statdb` sur l'année 2020 - les colonnes `prets` et `connexions_postes` sont **interverties sur les 12 mois de 2020** dans le jeu publié (ex. janvier 2020 : `connexions_postes` publié = 5 717, qui correspond exactement au `prets` recalculé ; `prets` publié = 28 612, proche du `connexions_postes` recalculé). Concordance quasi parfaite une fois les deux colonnes remises dans le bon sens, aucune autre année n'est concernée. `stat_affluence_concat.py` échange ces deux colonnes uniquement pour les lignes de 2020, sans toucher à aucune autre valeur ni année.
+
+Sortie : `data/openData/affluence_grand_plage_h_par_h_complet.csv` (2014-07-01 → aujourd'hui). Les `NaN` d'origine du fichier data MEL sur 2014-2020 (ambiguïté documentée plus haut) sont mis à `0` explicite, comme sur la partie 2021+ - seule transformation appliquée en plus du correctif d'inversion 2020.
+
+### Nouvelle colonne `connexions_wifi`
+
+Absente du jeu publié à l'origine (jamais suivie à l'époque). `statdb.stat_wifi` (alimentée par `data_wk_wifi.py`) a de la profondeur historique dès 2016 - contrairement à `stat_issues`, mais comme `stat_webkiosk`. Ajoutée dans `stat_affluence2oa.py` (2021+) et reconstruite dans `stat_affluence_concat.py` pour 2014-2020 par une jointure **externe** sur `(date, heure)` avec `stat_wifi` (un créneau où seul le wifi a été utilisé n'existe pas dans le fichier data MEL d'origine, une jointure simple l'aurait perdu). Même filtre du lundi que `connexions_postes`. 2014-2015 sortent à `0` : `stat_wifi` n'a rien avant 2016, probablement parce que le service n'existait pas encore (à confirmer si besoin).
+
 ## `kibini/webapp/` — site web Flask
 
 Portage de `kibini_prod/lib/website/dancer.pm` (Dancer2/Perl) et des modules qu'il appelle (`adherents.pm`, `collections/suggestions.pm`, `salleEtude/form.pm`, `action_culturelle.pm`, `action_coop/form.pm`, `liste.pm`).
