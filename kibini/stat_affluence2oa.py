@@ -9,12 +9,16 @@ from kiblib.utils.frequentation import calculer_occupation
 # Reconstitue le jeu "affluence horaire" publié sur data.lillemetropole.fr
 # (ville_roubaix:affluence_et_activites_de_la_grand_plage_h_par_h_depuis_2014),
 # arrêté au 2020-12-31, enrichi de colonnes absentes du jeu d'origine
-# (connexions_wifi, impressions). Prêts/retours viennent de
-# statdb.stat_issues (branche MED = Grand Plage), connexions postes de
-# statdb.stat_webkiosk (à la demande - ni cette table ni
+# (connexions_wifi, impressions, frequentation_etude, entrees, occupation).
+# Prêts/retours viennent de statdb.stat_issues (branche MED = Grand Plage),
+# connexions postes de statdb.stat_webkiosk (à la demande - ni cette table ni
 # stat_sessions_webkiosk ne sont alimentées en continu actuellement, voir
 # README, section "Jeu open data affluence horaire"), wifi de
-# statdb.stat_wifi, impressions (nombre de pages) de statdb.stat_impressions.
+# statdb.stat_wifi, impressions (nombre de pages) de statdb.stat_impressions,
+# fréquentation salle d'étude de statdb.stat_freq_etude, entrées/occupation
+# de statdb.stat_entrees/stat_entrees_det. Voir README pour le détail de
+# chaque colonne, les règles métier appliquées (lundi, amplitude
+# d'ouverture) et les anomalies identifiées et corrigées.
 
 
 def parse_args():
