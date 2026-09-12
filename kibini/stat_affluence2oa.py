@@ -1,0 +1,80 @@
+import argparse
+from datetime import date
+
+import pandas as pd
+
+from kiblib.utils.db import DbConn
+
+# Reconstitue le jeu "affluence horaire" publié sur data.lillemetropole.fr
+# (ville_roubaix:affluence_et_activites_de_la_grand_plage_h_par_h_depuis_2014),
+# arrêté au 2020-12-31. Prêts/retours viennent de statdb.stat_issues (branche
+# MED = Grand Plage), connexions postes de statdb.stat_webkiosk (à la demande -
+# ni cette table ni stat_sessions_webkiosk ne sont alimentées en continu
+# actuellement, voir README, section "Jeu open data affluence horaire").
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Reconstitue le jeu 'affluence horaire' entre deux dates."
+    )
+    parser.add_argument(
+        "--start-date", required=True,
+        help="Début de la plage à traiter (YYYY-MM-DD), inclus.")
+    parser.add_argument(
+        "--end-date", required=True,
+        help="Fin de la plage à traiter (YYYY-MM-DD), exclue.")
+    args = parser.parse_args()
+    return date.fromisoformat(args.start_date), date.fromisoformat(args.end_date)
+
+
+DATE_DEBUT, DATE_FIN = parse_args()
+
+engine = DbConn().create_engine()
+
+prets = pd.read_sql(
+    """
+    SELECT DATE(issuedate) AS date, HOUR(issuedate) AS heure, COUNT(*) AS prets
+    FROM statdb.stat_issues
+    WHERE branch = 'MED' AND issuedate >= %(debut)s AND issuedate < %(fin)s
+    GROUP BY DATE(issuedate), HOUR(issuedate)
+    """,
+    con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
+
+retours = pd.read_sql(
+    """
+    SELECT DATE(returndate) AS date, HOUR(returndate) AS heure, COUNT(*) AS retours
+    FROM statdb.stat_issues
+    WHERE branch = 'MED' AND returndate >= %(debut)s AND returndate < %(fin)s
+    GROUP BY DATE(returndate), HOUR(returndate)
+    """,
+    con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
+
+connexions = pd.read_sql(
+    """
+    SELECT DATE(heure_deb) AS date, HOUR(heure_deb) AS heure, COUNT(*) AS connexions_postes
+    FROM statdb.stat_webkiosk
+    WHERE heure_deb >= %(debut)s AND heure_deb < %(fin)s
+    GROUP BY DATE(heure_deb), HOUR(heure_deb)
+    """,
+    con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
+
+df = prets.merge(retours, on=["date", "heure"], how="outer")
+df = df.merge(connexions, on=["date", "heure"], how="outer")
+
+# Contrairement au jeu publié jusqu'ici (cf. README), les créneaux sans
+# activité sont mis à 0 explicitement plutôt que laissés vides - ambiguïté
+# NaN documentée comme point à corriger.
+for c in ["prets", "retours", "connexions_postes"]:
+    df[c] = df[c].fillna(0).astype(int)
+
+df["date"] = pd.to_datetime(df["date"])
+df["annee"] = df["date"].dt.year
+df["jour"] = df["date"].dt.day
+df["mois"] = df["date"].dt.month
+df["heure"] = df["heure"].apply(lambda h: f"{h:02d}:00:00")
+df["date"] = df["date"].dt.strftime("%Y-%m-%d")
+
+df = df[["date", "annee", "jour", "mois", "heure", "retours", "prets", "connexions_postes"]]
+df = df.sort_values(["date", "heure"])
+
+df.to_csv("data/openData/affluence_grand_plage_h_par_h.csv", index=False)

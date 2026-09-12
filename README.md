@@ -107,6 +107,36 @@ Le CSV en ligne (extractions 2019/2020 uniquement) a été généré à partir d
 
 Aucun des deux formats ne permet de reconstruire les 4 colonnes séparément pour une extraction récente sans rejoindre `koha_prod.borrower_attributes` par `borrowernumber` (`get_inscription_attributs_code()` dans `adherent.py` - non utilisable depuis `stat_adh2oa.py`, qui ne récupère pas ce champ).
 
+## Jeu open data "affluence horaire" - pas de script producteur dans ce dépôt
+
+Second jeu de données publié par la Ville de Roubaix sur data.lillemetropole.fr : `ville_roubaix:affluence_et_activites_de_la_grand_plage_h_par_h_depuis_2014` (22 018 lignes, colonnes `date`/`annee`/`jour`/`mois`/`heure`/`retours`/`prets`/`connexions_postes`). Comme le jeu adhérents, plus mis à jour depuis 2020.
+
+**Contrairement au jeu adhérents, aucun script ni notebook de ce dépôt ne produit ce fichier** - recherche large sans résultat (noms de colonnes exacts, requêtes SQL combinant `stat_issues`/`stat_prets` et `stat_webkiosk`/`stat_sessions_webkiosk` par heure). Les briques existent séparément (`data_issues.py`/`data_prets.py` pour les prêts-retours, `data_wk_pc.py` pour les connexions postes), mais rien ne les agrège par heure vers ce format. Pas de script `stat_*2oa.py` équivalent à `stat_adh2oa.py` pour ce jeu - à écrire si une mise à jour est décidée.
+
+### Anomalie identifiée et vérifiée sur le jeu publié : connexions fantômes à 2h du matin
+
+Sur les données 2014-2020 : exactement 9 lignes par mois, chaque mois de juillet 2014 à août 2016 (26 mois), toutes `heure=02:00:00`, `connexions_postes=1`, `retours`/`prets` vides, systématiquement sur les jours 1 à 9 du mois - une médiathèque n'ouvre pas à 2h. Le motif s'arrête net en septembre 2016 (3 occurrences ce mois-là puis plus rien de comparable).
+
+Hypothèse initiale (tâche planifiée sur un poste, compte technique webkiosk) **infirmée par vérification directe en base** :
+- `statdb.stat_webkiosk` (alimentée par `data_wk_pc.py` depuis les logs du logiciel webkiosk tiers) : aucune ligne à `HOUR(heure_deb)=2` sur les jours 1-9, ni même sur l'ensemble de la journée du 2014-07-02 vérifiée en détail (amplitude réelle du poste ce jour-là : 10h06-18h06).
+- `statdb.stat_sessions_webkiosk` (anonymisée quotidiennement par `data_ano.py`) : également vide sur `HOUR(session_date_heure_debut)=2` et jours 1-9, sur toute la période.
+
+Aucune donnée source actuelle n'explique ces lignes : l'artefact vient très probablement du pipeline qui a construit l'export historique à l'époque (l'ancien système Perl `kibini_prod`, antérieur à ce portage Python et absent de ce dépôt) - valeur sentinelle ou bug de jointure non reproductible avec le code actuel. **Recommandation pour une reconstruction de ce jeu** : exclure ces ~235 lignes comme données aberrantes plutôt que de chercher à les réexpliquer.
+
+### Autres points relevés sur ce jeu (non vérifiés en base, à confirmer si reconstruction)
+
+- `NaN` n'a pas un sens fiable : les 3 colonnes ont à la fois des zéros explicites et des valeurs manquantes (`connexions_postes` notamment : 43 zéros vs 6160 `NaN`, 28 % des lignes) - à clarifier/documenter avant toute republication plutôt que de laisser l'ambiguïté "non mesuré" vs "activité nulle".
+- Pics extrêmes de `retours` le 2020-03-14 (veille du 1er confinement) et le 2020-10-29 (annonce du 2e) : cohérents avec le contexte (retours massifs avant fermeture), pas des erreurs à corriger.
+- Couverture incomplète : démarre le 1er juillet 2014 (pas le 1er janvier, malgré le nom "depuis 2014") ; 261 jours sans aucune ligne sur toute la période (78 en 2020, cohérent avec les confinements ; 42 en 2014 et 57 en 2015, moins évidents - possibles trous de collecte au démarrage, à vérifier).
+
+### `stat_affluence2oa.py` - script de mise à jour (nouveau)
+
+Reconstitue ce jeu à partir de `statdb` pour prolonger l'historique après 2020-12-31 : `prets`/`retours` viennent de `statdb.stat_issues` (`issuedate`/`returndate`, filtré `branch='MED'`), `connexions_postes` de `statdb.stat_webkiosk` (`heure_deb`) - **par choix explicite**. Ni `stat_webkiosk` (import CSV manuel via `data_wk_pc.py`, absent du cron) ni `stat_sessions_webkiosk` (anonymisée quotidiennement par `data_ano.py`, mais confirmé **plus alimentée en nouvelles lignes**) ne sont des sources vivantes actuellement : `connexions_postes` sortira donc probablement à 0 pour toute la période récente, quelle que soit la table utilisée - pas une erreur du script, un usage informatique en poste qui n'est simplement plus tracé dans `statdb` depuis un moment. Plage de dates en paramètres CLI (`--start-date`/`--end-date`, `YYYY-MM-DD`, bornes incluse/exclue - même convention que `data_issues.py`), pas en dur dans le fichier. Corrige au passage l'ambiguïté `NaN` du jeu publié (voir plus haut) : les créneaux sans activité sortent à `0` explicite, pas vides.
+
+```bash
+python stat_affluence2oa.py --start-date 2021-01-01 --end-date 2026-01-01
+```
+
 ## `kibini/webapp/` — site web Flask
 
 Portage de `kibini_prod/lib/website/dancer.pm` (Dancer2/Perl) et des modules qu'il appelle (`adherents.pm`, `collections/suggestions.pm`, `salleEtude/form.pm`, `action_culturelle.pm`, `action_coop/form.pm`, `liste.pm`).
