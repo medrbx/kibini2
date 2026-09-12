@@ -70,6 +70,10 @@ connexions_wifi = pd.read_sql(
     con=engine, params={"debut": DEBUT, "fin": FIN})
 connexions_wifi["date"] = pd.to_datetime(connexions_wifi["date"])
 
+# HAVING > 0 sur les 2 requêtes SUM() ci-dessous : contrairement à COUNT(*),
+# une somme peut ressortir à 0 (travail d'impression à 0 page, événement
+# "sortie seule" Opteio - voir stat_affluence2oa.py) - déjà sans conséquence
+# ici grâce au filtre "tout zéro" plus bas, mais gardé par cohérence.
 impressions = pd.read_sql(
     """
     SELECT DATE(date_impression) AS date, HOUR(date_impression) AS heure,
@@ -78,6 +82,7 @@ impressions = pd.read_sql(
     WHERE date_impression >= %(debut)s AND date_impression < %(fin)s
       AND DAYOFWEEK(date_impression) != 2
     GROUP BY DATE(date_impression), HOUR(date_impression)
+    HAVING SUM(nb_pages_imprimees) > 0
     """,
     con=engine, params={"debut": DEBUT, "fin": FIN})
 impressions["date"] = pd.to_datetime(impressions["date"])
@@ -89,6 +94,7 @@ entrees = pd.read_sql(
     WHERE datetime >= %(debut)s AND datetime < %(fin)s
       AND DAYOFWEEK(datetime) != 2
     GROUP BY DATE(datetime), HOUR(datetime)
+    HAVING SUM(entrees) > 0
     """,
     con=engine, params={"debut": DEBUT, "fin": FIN})
 entrees["date"] = pd.to_datetime(entrees["date"])

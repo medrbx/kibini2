@@ -87,6 +87,10 @@ connexions_wifi = pd.read_sql(
 
 # impressions = nombre de pages imprimées (volume, pas un comptage de
 # travaux d'impression) - même filtre du lundi que les autres colonnes.
+# HAVING > 0 : contrairement à COUNT(*) (toujours >= 1 par construction du
+# GROUP BY), SUM() peut ressortir à 0 (travail d'impression à 0 page) et
+# introduire une ligne fantôme dans la jointure externe si rien d'autre n'a
+# d'activité ce créneau-là.
 impressions = pd.read_sql(
     """
     SELECT DATE(date_impression) AS date, HOUR(date_impression) AS heure,
@@ -95,11 +99,17 @@ impressions = pd.read_sql(
     WHERE date_impression >= %(debut)s AND date_impression < %(fin)s
       AND DAYOFWEEK(date_impression) != 2
     GROUP BY DATE(date_impression), HOUR(date_impression)
+    HAVING SUM(nb_pages_imprimees) > 0
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
 # entrees = comptage de passages physiques (capteur Opteio), déjà agrégé à
 # l'heure dans stat_entrees. Même filtre du lundi que les autres colonnes.
+# HAVING > 0 : l'API Opteio distingue parfois entrées et sorties sur deux
+# lignes séparées (cf. data_entrees_opteio.py) - un événement "sortie seule"
+# crée une ligne stat_entrees avec entrees=0, qui introduirait sinon une
+# ligne fantôme dans la jointure externe (cause confirmée de 38 lignes
+# entièrement à zéro sur un premier essai).
 entrees = pd.read_sql(
     """
     SELECT DATE(datetime) AS date, HOUR(datetime) AS heure, SUM(entrees) AS entrees
@@ -107,6 +117,7 @@ entrees = pd.read_sql(
     WHERE datetime >= %(debut)s AND datetime < %(fin)s
       AND DAYOFWEEK(datetime) != 2
     GROUP BY DATE(datetime), HOUR(datetime)
+    HAVING SUM(entrees) > 0
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
@@ -121,6 +132,11 @@ df = df.merge(entrees, on=["date", "heure"], how="outer")
 # NaN documentée comme point à corriger.
 for c in ["prets", "retours", "connexions_postes", "connexions_wifi", "impressions", "entrees"]:
     df[c] = df[c].fillna(0).astype(int)
+
+# Filet de sécurité (en plus des HAVING > 0 ci-dessus) : une ligne
+# entièrement à zéro sur les 6 métriques ne devrait jamais exister.
+masque_tout_zero = (df[["prets", "retours", "connexions_postes", "connexions_wifi", "impressions", "entrees"]] == 0).all(axis=1)
+df = df[~masque_tout_zero]
 
 df["date"] = pd.to_datetime(df["date"])
 df["annee"] = df["date"].dt.year
