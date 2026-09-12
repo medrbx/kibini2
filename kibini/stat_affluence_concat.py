@@ -11,19 +11,21 @@ from kiblib.utils.db import DbConn
 #   colonnes prets/connexions_postes sont interverties sur toute l'année 2020
 #   dans le fichier publié (concordance quasi parfaite une fois remises dans
 #   le bon sens) - corrigé ici, aucune autre valeur modifiée. Colonne
-#   connexions_wifi absente du jeu publié à l'origine (jamais suivie à
-#   l'époque) : reconstruite ici depuis statdb.stat_wifi, qui a de la
-#   profondeur historique dès 2016 (2014-2015 sortent à 0 - le service wifi
-#   public n'existait probablement pas encore, à confirmer si besoin).
+#   connexions_wifi, impressions et entrees absentes du jeu publié à
+#   l'origine (jamais suivies à l'époque) : reconstruites ici depuis
+#   statdb.stat_wifi (profondeur historique dès 2016, 2014-2015 sortent à 0),
+#   statdb.stat_impressions (profondeur dès 2015, 2014 sort à 0) - le service
+#   n'existait probablement pas encore ces années-là, à confirmer si besoin -
+#   et statdb.stat_entrees (profondeur dès 2009, aucune lacune sur 2014-2020).
 # - 2021-01-01 -> aujourd'hui : extraction fraîche produite par
-#   stat_affluence2oa.py (colonne connexions_wifi déjà incluse).
+#   stat_affluence2oa.py (connexions_wifi/impressions/entrees déjà incluses).
 FICHIER_DATA_MEL = "data/openData/data/affluence_data_mel_2014-2020_brut.csv"
 FICHIER_NOUVEAU = "data/openData/affluence_grand_plage_h_par_h.csv"
 FICHIER_SORTIE = "data/openData/affluence_grand_plage_h_par_h_complet.csv"
 
 COLONNES = [
     "date", "annee", "jour", "mois", "heure",
-    "retours", "prets", "connexions_postes", "connexions_wifi"]
+    "retours", "prets", "connexions_postes", "connexions_wifi", "impressions", "entrees"]
 
 data_mel = pd.read_csv(FICHIER_DATA_MEL)
 if "FID" in data_mel.columns:
@@ -39,9 +41,24 @@ data_mel.loc[masque_2020, ["prets", "connexions_postes"]] = (
 for c in ["retours", "prets", "connexions_postes"]:
     data_mel[c] = data_mel[c].fillna(0).astype(int)
 
+data_mel["heure_int"] = data_mel["heure"].str[:2].astype(int)
+
+# Mêmes règles que stat_affluence2oa.py, appliquées ici a posteriori sur le
+# fichier publié d'origine pour rester cohérent sur toute la période : lundi
+# (médiathèque fermée au public, seuls les retours sont possibles) et
+# amplitude d'ouverture 9h-19h pour les prêts (lots groupés hors ouverture,
+# voir README) - on annule les valeurs concernées plutôt que de reconstruire.
+lundi = data_mel["date"].dt.dayofweek == 0
+data_mel.loc[lundi, ["prets", "connexions_postes"]] = 0
+hors_ouverture = ~data_mel["heure_int"].between(9, 19)
+data_mel.loc[hors_ouverture, "prets"] = 0
+
 # Même filtre du lundi que dans stat_affluence2oa.py (médiathèque fermée au
 # public, toute connexion ce jour-là est un test).
 engine = DbConn().create_engine()
+DEBUT = data_mel["date"].min()
+FIN = data_mel["date"].max() + pd.Timedelta(days=1)
+
 connexions_wifi = pd.read_sql(
     """
     SELECT DATE(start_wifi) AS date, HOUR(start_wifi) AS heure, COUNT(*) AS connexions_wifi
@@ -50,22 +67,49 @@ connexions_wifi = pd.read_sql(
       AND DAYOFWEEK(start_wifi) != 2
     GROUP BY DATE(start_wifi), HOUR(start_wifi)
     """,
-    con=engine,
-    params={"debut": data_mel["date"].min(), "fin": data_mel["date"].max() + pd.Timedelta(days=1)})
+    con=engine, params={"debut": DEBUT, "fin": FIN})
 connexions_wifi["date"] = pd.to_datetime(connexions_wifi["date"])
 
-# data_mel a 'heure' au format 'HH:00:00' (texte), connexions_wifi au format
-# entier (issu de HOUR() en SQL) - clé de jointure normalisée en entier le
-# temps de la fusion, puis reformatée à l'identique du fichier d'origine.
-# Jointure externe (outer) : un créneau où seul le wifi a été utilisé
-# n'existe pas dans le fichier data MEL d'origine (colonne jamais suivie à
-# l'époque), il ne faut pas le perdre.
-data_mel["heure_int"] = data_mel["heure"].str[:2].astype(int)
+impressions = pd.read_sql(
+    """
+    SELECT DATE(date_impression) AS date, HOUR(date_impression) AS heure,
+        SUM(nb_pages_imprimees) AS impressions
+    FROM statdb.stat_impressions
+    WHERE date_impression >= %(debut)s AND date_impression < %(fin)s
+      AND DAYOFWEEK(date_impression) != 2
+    GROUP BY DATE(date_impression), HOUR(date_impression)
+    """,
+    con=engine, params={"debut": DEBUT, "fin": FIN})
+impressions["date"] = pd.to_datetime(impressions["date"])
+
+entrees = pd.read_sql(
+    """
+    SELECT DATE(datetime) AS date, HOUR(datetime) AS heure, SUM(entrees) AS entrees
+    FROM statdb.stat_entrees
+    WHERE datetime >= %(debut)s AND datetime < %(fin)s
+      AND DAYOFWEEK(datetime) != 2
+    GROUP BY DATE(datetime), HOUR(datetime)
+    """,
+    con=engine, params={"debut": DEBUT, "fin": FIN})
+entrees["date"] = pd.to_datetime(entrees["date"])
+
+# heure_int (calculé plus haut) sert de clé de jointure - data_mel a 'heure'
+# au format 'HH:00:00' (texte), les extractions ci-dessus au format entier
+# (issu de HOUR() en SQL). Jointures externes (outer) : un créneau où seul
+# le wifi, l'impression ou l'entrée a été utilisé n'existe pas dans le
+# fichier data MEL d'origine (colonnes jamais suivies à l'époque), il ne
+# faut pas le perdre.
 data_mel = data_mel.merge(
     connexions_wifi.rename(columns={"heure": "heure_int"}),
     on=["date", "heure_int"], how="outer")
+data_mel = data_mel.merge(
+    impressions.rename(columns={"heure": "heure_int"}),
+    on=["date", "heure_int"], how="outer")
+data_mel = data_mel.merge(
+    entrees.rename(columns={"heure": "heure_int"}),
+    on=["date", "heure_int"], how="outer")
 
-for c in ["retours", "prets", "connexions_postes", "connexions_wifi"]:
+for c in ["retours", "prets", "connexions_postes", "connexions_wifi", "impressions", "entrees"]:
     data_mel[c] = data_mel[c].fillna(0).astype(int)
 
 data_mel["annee"] = data_mel["date"].dt.year
@@ -74,6 +118,16 @@ data_mel["mois"] = data_mel["date"].dt.month
 data_mel["heure"] = data_mel["heure_int"].apply(lambda h: f"{h:02d}:00:00")
 data_mel = data_mel.drop(columns=["heure_int"])
 data_mel["date"] = data_mel["date"].dt.strftime("%Y-%m-%d")
+
+# Les annulations lundi/hors-ouverture ci-dessus peuvent ramener une ligne à
+# zéro sur les 6 métriques - on la retire, comme les créneaux sans activité
+# n'apparaissent jamais dans la partie 2021+ (construite par jointure sur des
+# comptages GROUP BY, jamais tous nuls par construction).
+masque_tout_zero = (
+    (data_mel["retours"] == 0) & (data_mel["prets"] == 0)
+    & (data_mel["connexions_postes"] == 0) & (data_mel["connexions_wifi"] == 0)
+    & (data_mel["impressions"] == 0) & (data_mel["entrees"] == 0))
+data_mel = data_mel[~masque_tout_zero]
 
 nouveau = pd.read_csv(FICHIER_NOUVEAU)
 nouveau = nouveau[nouveau["date"] >= "2021-01-01"]

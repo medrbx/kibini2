@@ -153,11 +153,21 @@ La médiathèque est fermée au public le lundi - seule la boîte de retour rest
 
 **Bug confirmé et corrigé au passage** : comparaison mois par mois entre le fichier publié et une extraction fraîche de `statdb` sur l'année 2020 - les colonnes `prets` et `connexions_postes` sont **interverties sur les 12 mois de 2020** dans le jeu publié (ex. janvier 2020 : `connexions_postes` publié = 5 717, qui correspond exactement au `prets` recalculé ; `prets` publié = 28 612, proche du `connexions_postes` recalculé). Concordance quasi parfaite une fois les deux colonnes remises dans le bon sens, aucune autre année n'est concernée. `stat_affluence_concat.py` échange ces deux colonnes uniquement pour les lignes de 2020, sans toucher à aucune autre valeur ni année.
 
-Sortie : `data/openData/affluence_grand_plage_h_par_h_complet.csv` (2014-07-01 → aujourd'hui). Les `NaN` d'origine du fichier data MEL sur 2014-2020 (ambiguïté documentée plus haut) sont mis à `0` explicite, comme sur la partie 2021+ - seule transformation appliquée en plus du correctif d'inversion 2020.
+Sortie : `data/openData/affluence_grand_plage_h_par_h_complet.csv` (2014-07-01 → aujourd'hui). Les `NaN` d'origine du fichier data MEL sur 2014-2020 (ambiguïté documentée plus haut) sont mis à `0` explicite, comme sur la partie 2021+.
+
+**Règles lundi/amplitude d'ouverture appliquées aussi à 2014-2020** : le jeu publié d'origine n'ayant jamais été filtré, il contenait encore 304 lignes de `prets` et 47 de `connexions_postes` un lundi, et 974 lignes de `prets` hors 9h-19h - en violation des mêmes règles déjà appliquées à la partie 2021+ (voir plus haut). `stat_affluence_concat.py` annule ces valeurs (mise à `0`, pas de reconstruction) pour rester cohérent sur toute la période ; une ligne qui devient nulle sur les 4 métriques après cette annulation est retirée du fichier final (comme pour la partie 2021+, qui n'a jamais de ligne entièrement à zéro par construction).
 
 ### Nouvelle colonne `connexions_wifi`
 
 Absente du jeu publié à l'origine (jamais suivie à l'époque). `statdb.stat_wifi` (alimentée par `data_wk_wifi.py`) a de la profondeur historique dès 2016 - contrairement à `stat_issues`, mais comme `stat_webkiosk`. Ajoutée dans `stat_affluence2oa.py` (2021+) et reconstruite dans `stat_affluence_concat.py` pour 2014-2020 par une jointure **externe** sur `(date, heure)` avec `stat_wifi` (un créneau où seul le wifi a été utilisé n'existe pas dans le fichier data MEL d'origine, une jointure simple l'aurait perdu). Même filtre du lundi que `connexions_postes`. 2014-2015 sortent à `0` : `stat_wifi` n'a rien avant 2016, probablement parce que le service n'existait pas encore (à confirmer si besoin).
+
+### Nouvelle colonne `impressions`
+
+Également absente du jeu publié à l'origine. Vient de `statdb.stat_impressions` (alimentée par `data_wk_impressions.py`, même mécanisme d'import CSV manuel que webkiosk/wifi) : `impressions` = **somme de `nb_pages_imprimees`** (un volume, pas un comptage de travaux d'impression - choix explicite, à la différence de `connexions_postes`/`connexions_wifi`). Profondeur historique dès 2015 (2014 sort à `0`). Ajoutée dans `stat_affluence2oa.py` (2021+) et reconstruite dans `stat_affluence_concat.py` pour 2014-2020 par jointure **externe** sur `(date, heure)`, même principe et même filtre du lundi que `connexions_wifi`.
+
+### Nouvelle colonne `entrees`
+
+Également absente du jeu publié à l'origine, mais issue de la source la plus fiable des quatre : `statdb.stat_entrees` est alimentée **quotidiennement par le cron** (`data_entrees_opteio.py --last 1`, tous les matins à 8h - voir plus haut), pas par un import CSV manuel comme webkiosk/wifi/impressions. Comptage de passages physiques par capteur (API Opteio), déjà agrégé à l'heure (`datetime`/`entrees`). Profondeur historique dès 2009 - **aucune lacune sur 2014-2020**, contrairement au wifi et aux impressions. Même filtre du lundi que les autres colonnes, appliqué par choix sans vérification préalable des moyennes par jour de semaine (à la différence des autres colonnes, une entrée un lundi peut légitimement venir du personnel - nuance non vérifiée). Ajoutée dans `stat_affluence2oa.py` (2021+) et reconstruite dans `stat_affluence_concat.py` pour 2014-2020, même principe de jointure externe.
 
 ## `kibini/webapp/` — site web Flask
 
