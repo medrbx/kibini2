@@ -99,6 +99,51 @@ class Adherent():
             'adh_inscription_attribut_pcs'
         ]
 
+        # en sortie, colonnes attendues par le jeu de données open data publié sur
+        # data.lillemetropole.fr ("caracteristiques_des_adherents_a_la_mediatheque_
+        # la_grand_plage") - noms et ordre retrouvés par rétro-ingénierie du CSV
+        # publié (comparaison de ~2000 lignes avec les compteurs nb_venues_*, voir
+        # get_adherent_opendata_data). Le CSV historiquement publié présente une
+        # corruption connue sur ~3% des lignes (attribut_inscription /
+        # inscription_personnalite / inscription_site_inscription /
+        # inscription_type_carte se chevauchent - JSON mal échappé lors d'un export
+        # antérieur) : volontairement non reproduite ici, ces colonnes sont
+        # recalculées proprement à partir des données statdb/koha.
+        self.adherent_opendata_columns = [
+            'date_extraction',
+            'activite',
+            'activite_emprunteur',
+            'activite_emprunteur_bus',
+            'activite_emprunteur_med',
+            'activite_salle_etude',
+            'activite_utilisateur_postes_informatiques',
+            'activite_utilisateur_wifi',
+            'tranches_d_age_1',
+            'tranches_d_age_2',
+            'roubaisien_ou_non',
+            'code_iris_de_roubaix',
+            'nom_de_l_iris_a_roubaix',
+            'commune_de_residence',
+            'attribut_inscription',
+            'inscription_attribut_action',
+            'inscription_attribut_collectivites',
+            'inscription_attribut_zebre',
+            'inscription_carte',
+            'nombre_d_annees_d_adhesion',
+            'type_inscription',
+            'inscription_personnalite',
+            'inscription_site_inscription',
+            'inscription_type_carte',
+            'nb_venues',
+            'nb_venues_postes_informatiques',
+            'nb_venues_prets',
+            'nb_venues_prets_bus',
+            'nb_venues_prets_mediatheque',
+            'nb_venues_salle_etude',
+            'nb_venues_wifi',
+            'sexe',
+        ]
+
     def get_adherent_statdb_data(self):
         self.get_adherent_id()
         self.get_inscription_carte_code()
@@ -133,6 +178,15 @@ class Adherent():
         self.get_inscription_attribut_bus()
         self.get_inscription_attribut_collect()
         self.get_inscription_attribut_pcs()
+
+    def get_adherent_opendata_data(self):
+        self.get_adherent_statdb_data()
+        self.get_adherent_es_data()
+        self.get_opendata_sexe()
+        self.get_opendata_nb_venues_prets()
+        self.get_opendata_activite_emprunteur()
+        self.get_opendata_activite_flags()
+        self.get_opendata_activite()
 
     def get_adherent_id(self):
         if 'borrowernumber' in self.df and 'adh_id' not in self.df:
@@ -418,6 +472,112 @@ class Adherent():
                 'adh_inscription_attribut_pcs' not in self.df):
             self.df['adh_inscription_attribut_pcs'] = self.df['adh_inscription_attribut_pcs_code'].apply(
                 lambda x: self.c2l['attributs'][x] if x in self.c2l['attributs'] else np.nan)
+
+    def get_opendata_sexe(self):
+        """
+        adh_sexe_code porte ici la valeur brute statdb.stat_adherents.sexe
+        (copiée telle quelle de koha_prod.borrowers.sex par data_adherents.py,
+        codes 'M'/'F' - à ne pas confondre avec adh_sexe, dérivé ailleurs de la
+        civilité 'title' pour d'autres usages).
+        """
+        if 'adh_sexe_code' in self.df and 'sexe' not in self.df:
+            self.df['sexe'] = self.df['adh_sexe_code'].map(
+                {'M': 'Homme', 'F': 'Femme'})
+
+    def get_opendata_nb_venues_prets(self):
+        if ('nb_venues_prets_mediatheque' in self.df and
+                'nb_venues_prets_bus' in self.df and
+                'nb_venues_prets' not in self.df):
+            self.df['nb_venues_prets'] = (
+                self.df['nb_venues_prets_mediatheque'] +
+                self.df['nb_venues_prets_bus'])
+
+    def get_opendata_activite_emprunteur(self):
+        if 'nb_venues_prets' in self.df and 'activite_emprunteur' not in self.df:
+            self.df['activite_emprunteur'] = self.df['nb_venues_prets'].apply(
+                lambda x: 'Emprunteur' if x and x > 0 else 'Non emprunteur')
+
+    def get_opendata_activite_flags(self):
+        flags = {
+            'nb_venues_prets_mediatheque': (
+                'Emprunteur Médiathèque', 'Non emprunteur Médiathèque',
+                'activite_emprunteur_med'),
+            'nb_venues_prets_bus': (
+                'Emprunteur Zèbre', 'Non emprunteur Zèbre',
+                'activite_emprunteur_bus'),
+            'nb_venues_salle_etude': (
+                "Utilisateur Salle d'étude", "Non utilisateur Salle d'étude",
+                'activite_salle_etude'),
+            'nb_venues_postes_informatiques': (
+                'Utilisateur postes informatiques',
+                'Non utilisateur postes informatiques',
+                'activite_utilisateur_postes_informatiques'),
+            'nb_venues_wifi': (
+                'Utilisateur Wifi', 'Non utilisateur Wifi',
+                'activite_utilisateur_wifi'),
+        }
+        for source_col, (label_yes, label_no, target_col) in flags.items():
+            if source_col in self.df and target_col not in self.df:
+                self.df[target_col] = self.df[source_col].apply(
+                    lambda x: label_yes if x and x > 0 else label_no)
+
+    def get_opendata_activite(self):
+        """
+        Libellé composite ('prêt + étude', 'aucune trace'...), retrouvé par
+        comparaison avec les compteurs nb_venues_* sur le CSV publié : ordre
+        fixe prêt/étude/postes/wifi, jointure par ' + ', 'aucune trace' si rien.
+        """
+        required = [
+            'nb_venues_prets', 'nb_venues_salle_etude',
+            'nb_venues_postes_informatiques', 'nb_venues_wifi']
+        if 'activite' not in self.df and all(c in self.df for c in required):
+            def compose(row):
+                parts = []
+                if row['nb_venues_prets'] > 0:
+                    parts.append('prêt')
+                if row['nb_venues_salle_etude'] > 0:
+                    parts.append('étude')
+                if row['nb_venues_postes_informatiques'] > 0:
+                    parts.append('postes')
+                if row['nb_venues_wifi'] > 0:
+                    parts.append('wifi')
+                return ' + '.join(parts) if parts else 'aucune trace'
+            self.df['activite'] = self.df.apply(compose, axis=1)
+
+    def get_adherent_opendata_data_columns(self):
+        rename_map = {
+            'adh_geo_gentilite': 'roubaisien_ou_non',
+            'adh_geo_rbx_iris_code': 'code_iris_de_roubaix',
+            'adh_geo_rbx_iris': 'nom_de_l_iris_a_roubaix',
+            'adh_geo_ville': 'commune_de_residence',
+            'adh_age_lib1': 'tranches_d_age_1',
+            'adh_age_lib2': 'tranches_d_age_2',
+            'adh_inscription_nb_annees_adhesion': 'nombre_d_annees_d_adhesion',
+            'adh_inscription_carte_gratuite': 'type_inscription',
+            'adh_inscription_carte_personnalite': 'inscription_personnalite',
+            'adh_inscription_site': 'inscription_site_inscription',
+            'adh_inscription_carte_type': 'inscription_type_carte',
+            'adh_inscription_attribut_pcs': 'attribut_inscription',
+            'adh_inscription_attribut_action': 'inscription_attribut_action',
+            'adh_inscription_attribut_collect': 'inscription_attribut_collectivites',
+            'adh_inscription_attribut_bus': 'inscription_attribut_zebre',
+        }
+        df = self.df.rename(columns=rename_map)
+        # colonnes manquantes forcées à vide plutôt qu'omises, pour garder le
+        # même schéma (nombre et ordre de colonnes) que le CSV publié sur
+        # data.lillemetropole.fr. Cas actuel : quand self.df vient de
+        # statdb.stat_adherents seul (ex. stat_adh2oa.py), les 4 colonnes
+        # inscription_attribut_*/attribut_inscription restent vides - la table
+        # ne conserve pas borrowernumber, nécessaire pour que
+        # get_inscription_attributs_code() rejoigne
+        # koha_prod.borrower_attributes. Ce n'est pas une limite du mapping
+        # lui-même : quand borrowernumber est disponible en entrée (comme dans
+        # data/adherents_2015-2025.csv.gz), ces 4 colonnes se remplissent
+        # normalement.
+        for c in self.adherent_opendata_columns:
+            if c not in df:
+                df[c] = None
+        self.adherent_opendata_data = df[self.adherent_opendata_columns]
 
     def get_adherent_statdb_data_columns(self):
         columns_to_keep = []

@@ -14,7 +14,7 @@ query = """
 SELECT
     date_extraction,
     age as adh_age,
-    geo_ville as adh_geo_ville,
+    geo_ville as city,
     geo_roubaix_iris as adh_geo_rbx_iris_code,
     sexe as adh_sexe_code,
     inscription_code_carte as adh_inscription_carte_code,
@@ -29,9 +29,15 @@ SELECT
     nb_venues
 FROM statdb.stat_adherents WHERE date_extraction = %s
 """
+# Date de l'extraction annuelle à exporter (calée sur le cliché de fin
+# d'année produit par data_adherents.py) - à éditer avant chaque lancement.
 date = "2023-12-27"
 df = pd.read_sql(query, params={date}, con=db_conn)
 adh = Adherent(df=df, con=db_conn, c2l=c2l.dict_codes_lib)
-adh.get_adherent_statdb_data()
-adh.get_adherent_es_data()
-adh.df.to_csv("data/openData/data/adherents_2023_brut.csv", index=False)
+adh.get_adherent_opendata_data()
+# Export au format brut (colonnes internes adh_*), pas le schéma final grand
+# public : c'est le format attendu par data/openData/data/fusion_fichiers.ipynb
+# et par stat_opendata_fusion.py pour l'agrégation multi-années. Le
+# renommage/nettoyage vers le schéma public se fait ensuite, une seule fois,
+# via stat_opendata_publish.py sur le fichier multi-années fusionné - pas ici.
+adh.df.to_csv(f"data/openData/data/adherents_{date[:4]}.csv", index=False)

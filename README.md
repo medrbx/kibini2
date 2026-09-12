@@ -72,6 +72,41 @@ Chaque script est autonome, invocable indépendamment (`python kibini/data_issue
 
 Portage des scripts Perl `kibini_prod/bin/statdb_*.pl` et `bin/data_*.pl`, renommés uniformément en `data_*.py`. Chacun alimente une ou plusieurs tables de `statdb` : `data_load_koha_prod.py` (dump quotidien de koha_prod), `data_issues.py`/`data_prets.py`, `data_reserves.py`, `data_adherents.py`, `data_exemplaires.py`, `data_freq_etude.py`, `data_entrees_opteio.py`, `data_ano.py` (anonymisation), `data_wk_pc.py`/`data_wk_wifi.py` (webkiosk/wifi), `data_sauv_bdd.py` (sauvegarde mysqldump).
 
+## Export open data adhérents — jeu "caractéristiques des adhérents" sur data.lillemetropole.fr
+
+Chaîne de scripts **manuelle** (pas de cron) qui alimente le jeu de données publié par la Ville de Roubaix sur data.lillemetropole.fr (`ville_roubaix:caracteristiques_des_adherents_a_la_mediatheque_la_grand_plage`), pas mis à jour depuis les extractions 2019/2020. Reconstituée en septembre 2026 en vue de remplacer ce jeu par un historique complet 2015-2025 ; qui fait quoi :
+
+| Fichier | Rôle |
+|---|---|
+| `kiblib/adherent.py` | Classe `Adherent`, partagée avec le reste du pipeline (dashboards, formulaire SLL...). `get_adherent_statdb_data()`/`get_adherent_es_data()` existaient déjà (utilisées par les notebooks de restitution) ; `get_adherent_opendata_data()`/`get_adherent_opendata_data_columns()` ont été ajoutées pour dériver et renommer vers le schéma exact du jeu publié sur data MEL. |
+| `stat_adh2oa.py` | Script à lancer **manuellement, une fois par extraction annuelle** (date en dur dans le fichier, à éditer avant chaque lancement) : interroge `statdb.stat_adherents` pour une `date_extraction` donnée, enrichit via `Adherent.get_adherent_opendata_data()`, écrit le CSV brut de l'année (colonnes internes `adh_*`, même format que `adherents_2015.csv`...`adherents_2022.csv`) dans `data/openData/data/adherents_<annee>.csv`. Ne récupère pas `borrowernumber` : les 4 colonnes d'attributs (action culturelle, arrêt Zèbre, structure collective, PCS) restent vides pour les nouvelles extractions - voir plus bas. |
+| `data/openData/data/fusion_fichiers.ipynb` | Notebook historique (2015-2022 uniquement, pas à relancer tel quel) : concatène les exports annuels produits par `stat_adh2oa.py` puis **décode le JSON** alors stocké dans `statdb.stat_adherents.inscription_attribut` (`{"action":"...","zèbre":"...","PCS":"...","collectivités":"..."}`) en 4 colonnes propres. A produit `data/openData/data/adherents.csv`, source (après compression manuelle non scriptée) de `data/adherents_2015-2025.csv.gz`. |
+| `stat_opendata_fusion.py` | Remplace `fusion_fichiers.ipynb` pour les mises à jour futures (plus d'étape JSON, devenue obsolète - voir plus bas) : concatène l'historique multi-années existant avec le CSV brut d'une nouvelle année (sortie de `stat_adh2oa.py`) et écrit le nouvel historique. Noms de fichiers en dur en tête de script, à éditer avant chaque lancement. |
+| `data/openData/analyse_adh.ipynb` | Notebook d'exploration (ne produit pas de fichier réutilisé ailleurs) : lit `data/adherents.csv`, calcule des statistiques d'usage par année (exclut 2020). |
+| `stat_opendata_publish.py` | Prend l'historique multi-années (colonnes internes `adh_*`) et le renomme vers un schéma grand public (table de correspondance dans le fichier), codes techniques conservés avec un préfixe `code_*`. Noms de fichiers en dur en tête de script, à éditer avant chaque lancement (en cohérence avec `FICHIER_SORTIE` de `stat_opendata_fusion.py`). Écrit le CSV candidat pour remplacer le jeu publié sur data MEL, accompagné du dictionnaire de données `data/openData/adherents_2015-2025_opendata_dictionnaire.csv` (à régénérer/vérifier à la main si de nouvelles valeurs apparaissent). |
+
+### Ajouter une nouvelle année à l'historique (procédure annuelle)
+
+1. Éditer la date dans `stat_adh2oa.py` (variable `date`, en tête de fichier) et le lancer : produit `data/openData/data/adherents_<annee>.csv`.
+2. Éditer `FICHIER_HISTORIQUE`/`NOUVELLE_ANNEE`/`FICHIER_SORTIE` en tête de `stat_opendata_fusion.py` et le lancer : produit le nouvel historique fusionné (`data/adherents_2015-<annee>.csv.gz`).
+3. Éditer `FICHIER_HISTORIQUE`/`FICHIER_SORTIE` en tête de `stat_opendata_publish.py` et le lancer : produit le CSV au format grand public, prêt à déposer sur data MEL.
+4. Vérifier le dictionnaire de données (`adherents_2015-2025_opendata_dictionnaire.csv`) : les colonnes ne changent pas, mais une nouvelle valeur catégorielle (nouvelle action culturelle, nouvel arrêt Zèbre...) doit y être ajoutée à la main si elle apparaît.
+
+Point de vigilance : les colonnes `code_action_culturelle`/`action_culturelle_associee`/`code_arret_bus_zebre`/`arret_bus_zebre`/`code_type_structure_collective`/`type_structure_collective` seront **vides pour toute année à partir de 2023** (voir section suivante) - ce n'est pas un bug de cette procédure, la donnée source ne le permet plus en l'état.
+| `notebook_sll.ipynb` | Sans lien avec l'open data : alimente l'enquête annuelle SLL (ministère de la Culture). Réutilise `Adherent.get_adherent_statdb_data()`/`get_adherent_es_data()` pour une extraction ponctuelle. |
+| `notebook_kibini2_lgp_que_font_les_inscrits.ipynb` | Dashboard de restitution interne, sans lien avec la publication open data : calcule indépendamment `nb_venues_prets` et une segmentation d'usage, logique proche de `get_opendata_activite()` mais implémentation séparée. |
+
+### Bug historique retrouvé sur le jeu actuellement publié sur data MEL
+
+Le CSV en ligne (extractions 2019/2020 uniquement) a été généré à partir de la sortie brute annuelle de `stat_adh2oa.py`, **sans** passer par l'étape de décodage JSON de `fusion_fichiers.ipynb`. Pour ces années-là, `stat_adherents.inscription_attribut` contenait du JSON (clés mojibake `zÃ¨bre`/`collectivitÃ©s`, vraisemblablement un aller-retour Latin-1/UTF-8 au moment de sa construction) : sur ~3 % des lignes publiées, les colonnes `attribut_inscription`/`inscription_personnalite`/`inscription_site_inscription`/`inscription_type_carte` affichent donc du JSON brut mal échappé (et des colonnes décalées) à la place de leur valeur. `stat_opendata_publish.py` ne reproduit pas ce bug puisqu'il part du fichier déjà fusionné/décodé par `fusion_fichiers.ipynb`.
+
+### `inscription_attribut` a changé de format dans le temps
+
+- Jusqu'à ~2022 (années couvertes par `fusion_fichiers.ipynb`) : JSON (`{"action": "...", "zèbre": "...", ...}`).
+- Actuellement (`data_adherents.py`, `fetch_attributes_by_borrower`) : valeurs jointes par `'|'`, sans le code d'origine (ACTION/BUS/COLLECT/PCS perdu à l'écriture).
+
+Aucun des deux formats ne permet de reconstruire les 4 colonnes séparément pour une extraction récente sans rejoindre `koha_prod.borrower_attributes` par `borrowernumber` (`get_inscription_attributs_code()` dans `adherent.py` - non utilisable depuis `stat_adh2oa.py`, qui ne récupère pas ce champ).
+
 ## `kibini/webapp/` — site web Flask
 
 Portage de `kibini_prod/lib/website/dancer.pm` (Dancer2/Perl) et des modules qu'il appelle (`adherents.pm`, `collections/suggestions.pm`, `salleEtude/form.pm`, `action_culturelle.pm`, `action_coop/form.pm`, `liste.pm`).
