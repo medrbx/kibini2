@@ -131,11 +131,17 @@ Aucune donnée source actuelle n'explique ces lignes : l'artefact vient très pr
 
 ### `stat_affluence2oa.py` - script de mise à jour (nouveau)
 
-Reconstitue ce jeu à partir de `statdb` pour prolonger l'historique après 2020-12-31 : `prets`/`retours` viennent de `statdb.stat_issues` (`issuedate`/`returndate`, filtré `branch='MED'`), `connexions_postes` de `statdb.stat_webkiosk` (`heure_deb`) - **par choix explicite**. Ni `stat_webkiosk` (import CSV manuel via `data_wk_pc.py`, absent du cron) ni `stat_sessions_webkiosk` (anonymisée quotidiennement par `data_ano.py`, mais confirmé **plus alimentée en nouvelles lignes**) ne sont des sources vivantes actuellement : `connexions_postes` sortira donc probablement à 0 pour toute la période récente, quelle que soit la table utilisée - pas une erreur du script, un usage informatique en poste qui n'est simplement plus tracé dans `statdb` depuis un moment. Plage de dates en paramètres CLI (`--start-date`/`--end-date`, `YYYY-MM-DD`, bornes incluse/exclue - même convention que `data_issues.py`), pas en dur dans le fichier. Corrige au passage l'ambiguïté `NaN` du jeu publié (voir plus haut) : les créneaux sans activité sortent à `0` explicite, pas vides.
+Reconstitue ce jeu à partir de `statdb` pour prolonger l'historique après 2020-12-31 : `prets`/`retours` viennent de `statdb.stat_issues` (`issuedate`/`returndate`, filtré `branch='MED'`), `connexions_postes` de `statdb.stat_webkiosk` (`heure_deb`) - **par choix explicite**, malgré l'import CSV manuel via `data_wk_pc.py` (absent du cron) qui alimente cette table. En pratique, testé sur 2021-2025 : `stat_webkiosk` est bien réalimentée (62 % des lignes ont `connexions_postes > 0`, jusqu'à 108/h) - la réserve initiale (table possiblement à l'arrêt) ne s'est pas vérifiée. `stat_sessions_webkiosk`, elle, reste confirmée non alimentée en nouvelles lignes. Plage de dates en paramètres CLI (`--start-date`/`--end-date`, `YYYY-MM-DD`, bornes incluse/exclue - même convention que `data_issues.py`), pas en dur dans le fichier. Corrige au passage l'ambiguïté `NaN` du jeu publié (voir plus haut) : les créneaux sans activité sortent à `0` explicite, pas vides.
 
 ```bash
 python stat_affluence2oa.py --start-date 2021-01-01 --end-date 2026-01-01
 ```
+
+### Anomalie identifiée sur les données 2021-2025 : prêts groupés hors amplitude d'ouverture
+
+Analyse du fichier produit par `stat_affluence2oa.py` sur 2021-2025 : 7 créneaux avec des `prets` en dehors de toute amplitude plausible (3h ou 21h), ex. **70 prêts en 17 secondes à 3h01 le 2021-02-04**, répartis sur 7 adhérents différents (jusqu'à 17 exemplaires pour un seul). Vérifié dans `statdb.stat_issues` : toujours `branch=MED`, catégories d'adhérent normales (BIBL/MEDA/MEDC/MEDP/CSVT, pas de code collectivité), plusieurs adhérents et exemplaires distincts par lot - donc de **vrais prêts**, pas un artefact du pipeline Kibini (`data_issues.py` copie `issuedate` tel quel depuis `koha_prod`, ne le réécrit jamais). La vitesse (des dizaines de prêts sur plusieurs comptes en quelques secondes) exclut une saisie manuelle : traitement automatisé côté Koha ou service de portage/prêt à distance préparé en lot, cause exacte non identifiée.
+
+Ces prêts existent réellement mais ne représentent pas de la fréquentation physique sur le créneau publié : `stat_affluence2oa.py` exclut donc `HOUR(issuedate) NOT BETWEEN 9 AND 19` (amplitude d'ouverture) du comptage `prets`.
 
 ## `kibini/webapp/` — site web Flask
 

@@ -31,11 +31,18 @@ DATE_DEBUT, DATE_FIN = parse_args()
 
 engine = DbConn().create_engine()
 
+# HOUR(issuedate) BETWEEN 9 AND 19 (amplitude d'ouverture) exclut des lots de
+# prêts groupés en rafale hors ouverture (plusieurs adhérents, chacun
+# plusieurs exemplaires, en quelques secondes - ex. 70 prêts en 17s à 3h01 le
+# 2021-02-04) : de vrais prêts mais qui ne représentent pas de la
+# fréquentation réelle sur ce créneau (traitement automatisé, cause exacte
+# non identifiée - voir README).
 prets = pd.read_sql(
     """
     SELECT DATE(issuedate) AS date, HOUR(issuedate) AS heure, COUNT(*) AS prets
     FROM statdb.stat_issues
     WHERE branch = 'MED' AND issuedate >= %(debut)s AND issuedate < %(fin)s
+      AND HOUR(issuedate) BETWEEN 9 AND 19
     GROUP BY DATE(issuedate), HOUR(issuedate)
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
