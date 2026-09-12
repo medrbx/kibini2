@@ -37,12 +37,16 @@ engine = DbConn().create_engine()
 # 2021-02-04) : de vrais prêts mais qui ne représentent pas de la
 # fréquentation réelle sur ce créneau (traitement automatisé, cause exacte
 # non identifiée - voir README).
+# DAYOFWEEK != 2 (lundi) : la médiathèque est fermée au public le lundi, seuls
+# les retours (boîte de retour) sont possibles ce jour-là - tout prêt ou toute
+# connexion poste enregistrés un lundi sont un test, pas de la fréquentation.
 prets = pd.read_sql(
     """
     SELECT DATE(issuedate) AS date, HOUR(issuedate) AS heure, COUNT(*) AS prets
     FROM statdb.stat_issues
     WHERE branch = 'MED' AND issuedate >= %(debut)s AND issuedate < %(fin)s
       AND HOUR(issuedate) BETWEEN 9 AND 19
+      AND DAYOFWEEK(issuedate) != 2
     GROUP BY DATE(issuedate), HOUR(issuedate)
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
@@ -61,6 +65,7 @@ connexions = pd.read_sql(
     SELECT DATE(heure_deb) AS date, HOUR(heure_deb) AS heure, COUNT(*) AS connexions_postes
     FROM statdb.stat_webkiosk
     WHERE heure_deb >= %(debut)s AND heure_deb < %(fin)s
+      AND DAYOFWEEK(heure_deb) != 2
     GROUP BY DATE(heure_deb), HOUR(heure_deb)
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})

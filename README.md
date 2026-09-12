@@ -143,6 +143,10 @@ Analyse du fichier produit par `stat_affluence2oa.py` sur 2021-2025 : 7 créneau
 
 Ces prêts existent réellement mais ne représentent pas de la fréquentation physique sur le créneau publié : `stat_affluence2oa.py` exclut donc `HOUR(issuedate) NOT BETWEEN 9 AND 19` (amplitude d'ouverture) du comptage `prets`.
 
+### Règle métier : le lundi, seuls les retours sont possibles
+
+La médiathèque est fermée au public le lundi - seule la boîte de retour reste accessible. Tout `prets`/`connexions_postes` enregistré un lundi est donc un test, pas de la fréquentation réelle. `stat_affluence2oa.py` exclut `DAYOFWEEK(...) = 2` (lundi) des comptages `prets` et `connexions_postes` ; `retours` n'est pas filtré par jour de la semaine.
+
 ## `kibini/webapp/` — site web Flask
 
 Portage de `kibini_prod/lib/website/dancer.pm` (Dancer2/Perl) et des modules qu'il appelle (`adherents.pm`, `collections/suggestions.pm`, `salleEtude/form.pm`, `action_culturelle.pm`, `action_coop/form.pm`, `liste.pm`).
