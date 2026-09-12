@@ -143,6 +143,12 @@ Analyse du fichier produit par `stat_affluence2oa.py` sur 2021-2025 : 7 créneau
 
 Ces prêts existent réellement mais ne représentent pas de la fréquentation physique sur le créneau publié : `stat_affluence2oa.py` exclut donc `HOUR(issuedate) NOT BETWEEN 9 AND 19` (amplitude d'ouverture) du comptage `prets`.
 
+### Anomalie ponctuelle : 2026-03-30 18h-19h, retours
+
+Détectée par une revue systématique des valeurs extrêmes des 7 métriques (seuil Q3 + 3×IQR par colonne, puis vérification de corrélation avec les 6 autres métriques sur le même créneau). Un lundi (médiathèque fermée au public) : 1740 puis 1992 retours sur les deux dernières heures de la journée, soit 3803 retours au total ce jour-là contre 1053 pour le record de tout autre lundi jamais enregistré (3,6×) - et **zéro** activité sur les 6 autres métriques ces deux créneaux. Sur 127 valeurs extrêmes de `retours` relevées au total, c'est la **seule** entièrement isolée (toutes les autres coïncident avec une vraie activité : confinements 2020, réouverture 2021, pics récurrents de juin/mercredi après-midi...).
+
+Contrairement aux prêts groupés ci-dessus (7 occurrences récurrentes sur plusieurs années, justifiant une règle générale), ce cas de `retours` est unique à ce jour : `stat_affluence2oa.py` l'exclut ponctuellement (`NOT (DATE(returndate) = '2026-03-30' AND HOUR(returndate) IN (18, 19))`) plutôt que par une règle générale. À surveiller : si le phénomène se reproduit, il faudra généraliser le traitement plutôt que d'accumuler des exclusions au cas par cas.
+
 ### Règle métier : le lundi, seuls les retours sont possibles
 
 La médiathèque est fermée au public le lundi - seule la boîte de retour reste accessible. Tout `prets`/`connexions_postes` enregistré un lundi est donc un test, pas de la fréquentation réelle. `stat_affluence2oa.py` exclut `DAYOFWEEK(...) = 2` (lundi) des comptages `prets` et `connexions_postes` ; `retours` n'est pas filtré par jour de la semaine.

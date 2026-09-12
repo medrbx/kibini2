@@ -55,11 +55,19 @@ prets = pd.read_sql(
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
+# Exclusion ponctuelle du 2026-03-30 18h-19h : 1740 puis 1992 retours, un
+# lundi soir (fermé au public), sans aucune activité corrélée sur les 6
+# autres métriques ce créneau-là - 3,6x le record de tout autre lundi
+# jamais enregistré. Cas isolé (le seul sur 127 valeurs extrêmes de retours
+# à n'avoir aucune activité corrélée) - traité au cas par cas plutôt que par
+# une règle générale comme pour les prêts groupés (voir plus haut), faute de
+# récurrence constatée à ce jour.
 retours = pd.read_sql(
     """
     SELECT DATE(returndate) AS date, HOUR(returndate) AS heure, COUNT(*) AS retours
     FROM statdb.stat_issues
     WHERE branch = 'MED' AND returndate >= %(debut)s AND returndate < %(fin)s
+      AND NOT (DATE(returndate) = '2026-03-30' AND HOUR(returndate) IN (18, 19))
     GROUP BY DATE(returndate), HOUR(returndate)
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
