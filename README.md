@@ -179,6 +179,10 @@ Absente du jeu publié à l'origine (jamais suivie à l'époque). `statdb.stat_w
 
 **Anomalie relevée, non expliquée** : `entrees` chute nettement en 2019 (moyenne ~37/h) par rapport à 2018 (~82/h) et 2017 (~66/h), avant la chute attendue de 2020 (COVID, ~15/h). Le nombre de créneaux couverts ne baisse pourtant pas particulièrement cette année-là - possible changement de capteur/calibration, à vérifier si cette colonne est utilisée pour des comparaisons d'une année sur l'autre.
 
+### Nouvelle colonne `frequentation_etude`
+
+Également absente du jeu publié à l'origine. Vient de `statdb.stat_freq_etude` : `COUNT(*)` sur `datetime_entree` - alimentée en direct par le badgeage entrée/sortie de la salle d'étude (`webapp/services.py::is_entrance()`), pas par un import CSV différé comme webkiosk/wifi/impressions. Même filtre du lundi que les autres colonnes (confirmé par l'utilisateur : la salle d'étude suit les mêmes horaires de fermeture que le reste de la médiathèque). Profondeur historique dès 2016 (2014-2015 sortent à `0`, service probablement inexistant ces années-là comme pour le wifi). Ajoutée dans `stat_affluence2oa.py` (2021+) et reconstruite dans `stat_affluence_concat.py` pour 2014-2020 par jointure **externe** sur `(date, heure)`, même principe que `connexions_wifi`.
+
 ### Nouvelle colonne `occupation`
 
 Nombre de personnes présentes dans l'établissement, dérivé du détail brut par capteur/minute `statdb.stat_entrees_det` (pas de `statdb.stat_entrees`, déjà agrégé sans le détail nécessaire ici) : `entrées cumulées − sorties cumulées`, tous capteurs confondus, remis à 0 à chaque nouveau jour.

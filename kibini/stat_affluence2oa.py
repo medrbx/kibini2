@@ -112,6 +112,20 @@ impressions = pd.read_sql(
     """,
     con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
 
+# frequentation_etude = nombre d'entrées en salle d'étude (badgeage direct,
+# webapp/services.py::is_entrance() - pas un import CSV différé comme
+# webkiosk/wifi/impressions). Même filtre du lundi que les autres colonnes.
+frequentation_etude = pd.read_sql(
+    """
+    SELECT DATE(datetime_entree) AS date, HOUR(datetime_entree) AS heure,
+        COUNT(*) AS frequentation_etude
+    FROM statdb.stat_freq_etude
+    WHERE datetime_entree >= %(debut)s AND datetime_entree < %(fin)s
+      AND DAYOFWEEK(datetime_entree) != 2
+    GROUP BY DATE(datetime_entree), HOUR(datetime_entree)
+    """,
+    con=engine, params={"debut": DATE_DEBUT, "fin": DATE_FIN})
+
 # entrees = comptage de passages physiques (capteur Opteio), déjà agrégé à
 # l'heure dans stat_entrees. Même filtre du lundi que les autres colonnes.
 # HAVING > 0 : l'API Opteio distingue parfois entrées et sorties sur deux
@@ -151,17 +165,18 @@ df = prets.merge(retours, on=["date", "heure"], how="outer")
 df = df.merge(connexions, on=["date", "heure"], how="outer")
 df = df.merge(connexions_wifi, on=["date", "heure"], how="outer")
 df = df.merge(impressions, on=["date", "heure"], how="outer")
+df = df.merge(frequentation_etude, on=["date", "heure"], how="outer")
 df = df.merge(entrees, on=["date", "heure"], how="outer")
 
 # Contrairement au jeu publié jusqu'ici (cf. README), les créneaux sans
 # activité sont mis à 0 explicitement plutôt que laissés vides - ambiguïté
 # NaN documentée comme point à corriger.
-for c in ["prets", "retours", "connexions_postes", "connexions_wifi", "impressions", "entrees"]:
+for c in ["prets", "retours", "connexions_postes", "connexions_wifi", "impressions", "frequentation_etude", "entrees"]:
     df[c] = df[c].fillna(0).astype(int)
 
 # Filet de sécurité (en plus des HAVING > 0 ci-dessus) : une ligne
-# entièrement à zéro sur les 6 métriques ne devrait jamais exister.
-masque_tout_zero = (df[["prets", "retours", "connexions_postes", "connexions_wifi", "impressions", "entrees"]] == 0).all(axis=1)
+# entièrement à zéro sur les 7 métriques ne devrait jamais exister.
+masque_tout_zero = (df[["prets", "retours", "connexions_postes", "connexions_wifi", "impressions", "frequentation_etude", "entrees"]] == 0).all(axis=1)
 df = df[~masque_tout_zero]
 
 # occupation en jointure gauche, après le filtre "tout zéro" ci-dessus :
@@ -180,8 +195,8 @@ df["date"] = df["date"].dt.strftime("%Y-%m-%d")
 
 df = df[[
     "date", "annee", "jour", "mois", "heure",
-    "retours", "prets", "connexions_postes", "connexions_wifi", "impressions", "entrees",
-    "occupation"]]
+    "retours", "prets", "connexions_postes", "connexions_wifi", "impressions",
+    "frequentation_etude", "entrees", "occupation"]]
 df = df.sort_values(["date", "heure"])
 
 df.to_csv("data/openData/affluence_grand_plage_h_par_h.csv", index=False)

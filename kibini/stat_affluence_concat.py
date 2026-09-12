@@ -12,12 +12,14 @@ from kiblib.utils.frequentation import calculer_occupation
 #   colonnes prets/connexions_postes sont interverties sur toute l'année 2020
 #   dans le fichier publié (concordance quasi parfaite une fois remises dans
 #   le bon sens) - corrigé ici, aucune autre valeur modifiée. Colonne
-#   connexions_wifi, impressions et entrees absentes du jeu publié à
-#   l'origine (jamais suivies à l'époque) : reconstruites ici depuis
-#   statdb.stat_wifi (profondeur historique dès 2016, 2014-2015 sortent à 0),
-#   statdb.stat_impressions (profondeur dès 2015, 2014 sort à 0) - le service
-#   n'existait probablement pas encore ces années-là, à confirmer si besoin -
-#   et statdb.stat_entrees (profondeur dès 2009, aucune lacune sur 2014-2020).
+#   connexions_wifi, impressions, frequentation_etude et entrees absentes du
+#   jeu publié à l'origine (jamais suivies à l'époque) : reconstruites ici
+#   depuis statdb.stat_wifi (profondeur historique dès 2016, 2014-2015
+#   sortent à 0), statdb.stat_impressions (profondeur dès 2015, 2014 sort à
+#   0) et statdb.stat_freq_etude (profondeur dès 2016, 2014-2015 sortent à
+#   0) - le service n'existait probablement pas encore ces années-là, à
+#   confirmer si besoin - et statdb.stat_entrees (profondeur dès 2009,
+#   aucune lacune sur 2014-2020).
 #   occupation reconstruite depuis statdb.stat_entrees_det (aussi profondeur
 #   dès 2009, aucune lacune) - calcul et correction dans
 #   kiblib.utils.frequentation (cumul entrées-sorties, écart de fermeture
@@ -30,8 +32,8 @@ FICHIER_SORTIE = "data/openData/affluence_grand_plage_h_par_h_complet.csv"
 
 COLONNES = [
     "date", "annee", "jour", "mois", "heure",
-    "retours", "prets", "connexions_postes", "connexions_wifi", "impressions", "entrees",
-    "occupation"]
+    "retours", "prets", "connexions_postes", "connexions_wifi", "impressions",
+    "frequentation_etude", "entrees", "occupation"]
 
 data_mel = pd.read_csv(FICHIER_DATA_MEL)
 if "FID" in data_mel.columns:
@@ -93,6 +95,18 @@ impressions = pd.read_sql(
     con=engine, params={"debut": DEBUT, "fin": FIN})
 impressions["date"] = pd.to_datetime(impressions["date"])
 
+frequentation_etude = pd.read_sql(
+    """
+    SELECT DATE(datetime_entree) AS date, HOUR(datetime_entree) AS heure,
+        COUNT(*) AS frequentation_etude
+    FROM statdb.stat_freq_etude
+    WHERE datetime_entree >= %(debut)s AND datetime_entree < %(fin)s
+      AND DAYOFWEEK(datetime_entree) != 2
+    GROUP BY DATE(datetime_entree), HOUR(datetime_entree)
+    """,
+    con=engine, params={"debut": DEBUT, "fin": FIN})
+frequentation_etude["date"] = pd.to_datetime(frequentation_etude["date"])
+
 entrees = pd.read_sql(
     """
     SELECT DATE(datetime) AS date, HOUR(datetime) AS heure, SUM(entrees) AS entrees
@@ -131,10 +145,13 @@ data_mel = data_mel.merge(
     impressions.rename(columns={"heure": "heure_int"}),
     on=["date", "heure_int"], how="outer")
 data_mel = data_mel.merge(
+    frequentation_etude.rename(columns={"heure": "heure_int"}),
+    on=["date", "heure_int"], how="outer")
+data_mel = data_mel.merge(
     entrees.rename(columns={"heure": "heure_int"}),
     on=["date", "heure_int"], how="outer")
 
-for c in ["retours", "prets", "connexions_postes", "connexions_wifi", "impressions", "entrees"]:
+for c in ["retours", "prets", "connexions_postes", "connexions_wifi", "impressions", "frequentation_etude", "entrees"]:
     data_mel[c] = data_mel[c].fillna(0).astype(int)
 
 data_mel["annee"] = data_mel["date"].dt.year
@@ -151,7 +168,8 @@ data_mel["date"] = data_mel["date"].dt.strftime("%Y-%m-%d")
 masque_tout_zero = (
     (data_mel["retours"] == 0) & (data_mel["prets"] == 0)
     & (data_mel["connexions_postes"] == 0) & (data_mel["connexions_wifi"] == 0)
-    & (data_mel["impressions"] == 0) & (data_mel["entrees"] == 0))
+    & (data_mel["impressions"] == 0) & (data_mel["frequentation_etude"] == 0)
+    & (data_mel["entrees"] == 0))
 data_mel = data_mel[~masque_tout_zero]
 
 # occupation en jointure gauche, après le filtre "tout zéro" ci-dessus :
