@@ -38,3 +38,9 @@ class Config():
 
     def get_config_opteio(self):
         return self.dataconfig['opteio']
+
+    def get_config_matomo(self):
+        return self.dataconfig['matomo']
+
+    def get_config_matomo_bnr(self):
+        return self.dataconfig['matomo_bnr']
