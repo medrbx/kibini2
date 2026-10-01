@@ -566,7 +566,7 @@ class Adherent():
         # colonnes manquantes forcées à vide plutôt qu'omises, pour garder le
         # même schéma (nombre et ordre de colonnes) que le CSV publié sur
         # data.lillemetropole.fr. Cas actuel : quand self.df vient de
-        # statdb.stat_adherents seul (ex. stat_adh2oa.py), les 4 colonnes
+        # statdb.stat_adherents seul (ex. stat_opendata_adh.py), les 4 colonnes
         # inscription_attribut_*/attribut_inscription restent vides - la table
         # ne conserve pas borrowernumber, nécessaire pour que
         # get_inscription_attributs_code() rejoigne

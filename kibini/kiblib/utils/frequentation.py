@@ -11,7 +11,7 @@ journée et empêchent ce retour exact à 0. calculer_occupation() corrige cet
 écart en le répartissant linéairement dans le temps sur la journée, puis
 plafonne le résultat à 0 (l'occupation ne peut pas être négative).
 
-Utilisé par stat_affluence2oa.py et stat_affluence_concat.py ; réutilisable
+Utilisé par stat_opendata_affluence.py ; réutilisable
 tel quel dans un notebook ou tout autre script partant d'un DataFrame au même
 format (colonnes date/heure/entree/sortie, une ligne par jour et créneau
 horaire, déjà sommées si plusieurs capteurs).
