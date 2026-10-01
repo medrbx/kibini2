@@ -32,6 +32,7 @@ SELECT
     i.itemlost_on,
     i.onloan,
     i.datelastborrowed,
+    i.datelastseen,
     i.biblionumber,
     b.title as titre,
     b.author,

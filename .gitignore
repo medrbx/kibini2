@@ -1,4 +1,6 @@
-data
+data/*
+!data/openData
+
 data_lucas
 kibini/conf/kibini_conf.yml
 test_notebook2html.sh

@@ -1,0 +1,50 @@
+colonne;ancien_nom_interne;ancien_nom_data_mel;description;type;valeurs_possibles
+date_extraction;date_extraction;date_extraction;Date de l'extraction annuelle (photographie de la situation de l'adhérent à cette date);Date (AAAA-MM-JJ);
+code_sexe;adh_sexe_code;;Code sexe brut issu du SIGB (Koha);Texte;M|F
+sexe;adh_sexe;sexe (vocabulaire différent sur data MEL : Homme/Femme);Sexe de l'adhérent;Texte;Masculin|Féminin|Inconnu|Non pertinent (adhérent = collectivité)
+age_annees;age;;Âge de l'adhérent en années à la date d'extraction;Nombre entier;
+code_tranche_age;adh_age_code;;Code technique interne de la tranche d'âge (référentiel interne, sans valeur en tant que telle);Texte;ex. a47, i10
+tranche_age_detaillee;adh_age_lib1;;Tranche d'âge détaillée (13 catégories) - colonne bonus, absente du jeu publié sur data MEL;Texte;0 - 2 ans|03 - 5 ans|06 - 10 ans|11 - 14 ans|15 - 17 ans|18 - 19 ans|20 - 24 ans|25 - 29 ans|30 - 39 ans|40 - 54 ans|55 - 64 ans|65 - 79 ans|80 ans et plus|Inconnu|Non pertinent
+tranche_age_large;adh_age_lib2;tranches_d_age_1;Tranche d'âge large (2 catégories);Texte;<= 14 ans|15 ans et plus|Inconnu|Non pertinent
+tranche_age_intermediaire;adh_age_lib3;tranches_d_age_2;Tranche d'âge intermédiaire (4 catégories);Texte;0 - 14 ans|15 - 24 ans|25 - 64 ans|65 ans et plus|Inconnu|Non pertinent
+commune_de_residence_brute;city;;Commune de résidence telle que déclarée par l'adhérent, non normalisée;Texte libre;
+est_roubaisien;adh_geo_gentilite;roubaisien_ou_non;Indique si l'adhérent réside à Roubaix;Texte;Roubaisien|Non Roubaisien
+commune_de_residence;adh_geo_ville;commune_de_residence;Commune de résidence normalisée : les communes du bassin de desserte sont nommées explicitement, les autres regroupées sous "AUTRE";Texte;ROUBAIX|CROIX|HEM|LEERS|LILLE|LYS-LEZ-LANNOY|MARCQ-EN-BAROEUL|MONS-EN-BAROEUL|MOUVAUX|TOURCOING|VILLENEUVE-D'ASCQ|WASQUEHAL|WATTRELOS|AUTRE
+fait_partie_bibliotheques_metropole;adh_geo_ville_bm;;Indique si la commune de résidence appartient au réseau des bibliothèques de la Métropole Européenne de Lille;Texte;ville_bm (en fait partie)|non (n'en fait pas partie)|NP (non pertinent, commune hors périmètre suivi, regroupée dans "AUTRE")
+commune_limitrophe_roubaix;adh_geo_ville_limitrophe;;Indique si la commune de résidence est limitrophe de Roubaix;Texte;limitrophe|non
+code_iris_roubaix;adh_geo_rbx_iris_code;code_iris_de_roubaix;Code INSEE de l'IRIS de résidence, uniquement renseigné pour les Roubaisiens;Texte/numérique;ex. 595120803|vide si non-Roubaisien ou collectivité
+nom_iris_roubaix;adh_geo_rbx_iris;nom_de_l_iris_a_roubaix;Nom de l'IRIS de résidence à Roubaix;Texte;ex. FRATERNITE, POTENNERIE...
+quartier_roubaix;adh_geo_rbx_quartier;;Quartier de Roubaix (regroupement d'IRIS);Texte;ex. MOULIN - POTENNERIE, EPEULE - TRICHON...
+secteur_roubaix;geo_rbx_secteur;;Secteur de Roubaix (regroupement de quartiers, plus agrégé);Texte;QUARTIERS NORD|QUARTIERS SUD|QUARTIERS EST|QUARTIERS OUEST|QUARTIERS CENTRE
+code_site_inscription;adh_inscription_site_code;;Code du site où l'adhérent s'est inscrit;Texte;MED (médiathèque)|BUS (bus Zèbre)|MUS (musée Diligent)
+site_inscription;adh_inscription_site;inscription_site_inscription;Site d'inscription, libellé;Texte;Médiathèque|Zèbre|Musée Diligent
+categorie_carte;inscription_carte;inscription_carte;Catégorie de carte d'adhésion (site et tarif combinés);Texte libre;ex. Médiathèque, Médiathèque Plus (5 €), Médiathèque Plus (Personnel médiathèque)...
+code_categorie_carte;adh_inscription_carte_code;;Code de la catégorie d'adhérent (référentiel SIGB);Texte;BIBL|MEDA|MEDB|MEDC|MEDP|ECOL|CLAS|CSVT|CSLT|COLD|COLI|COLS
+type_tarification_carte;adh_inscription_carte_type;inscription_type_carte;Regroupement du type de tarification de la carte;Texte;Médiathèque|Médiathèque Plus|Consultation sur place|Service collectivités|Prêt en nombre
+carte_gratuite_ou_payante;adh_inscription_carte_gratuite;type_inscription;Indique si la carte est gratuite ou payante;Texte;gratuite|payante
+prix_carte_euros;adh_inscription_carte_prix;;Prix de la carte, en euros;Nombre décimal;
+code_type_adherent;adh_inscription_carte_personnalite_code;;Code du type d'adhérent (personne physique ou collectivité);Texte;C (personne)|I (collectivité)
+type_adherent;adh_inscription_carte_personnalite;inscription_personnalite;Type d'adhérent, libellé;Texte;Personne|Collectivité
+anciennete_adhesion_annees;adh_inscription_nb_annees_adhesion;nombre_d_annees_d_adhesion;Nombre d'années depuis l'inscription;Nombre entier;
+tranche_anciennete_adhesion;adh_inscription_nb_annees_adhesion_tra;;Tranche d'ancienneté d'adhésion;Texte;a/ 0|b/ 1|c/ 2|d/ 3|e/ 4|f/ 5 - 10 ans|g/ Plus de 10 ans
+attributs_inscription_bruts;inscription_attribut;;Attribut(s) d'inscription bruts associés à l'adhérent (peut cumuler plusieurs informations) - format non garanti dans le temps, à titre indicatif uniquement, préférer les colonnes dédiées ci-dessous;Texte libre;
+code_action_culturelle;adh_inscription_attribut_action_code;;Code interne de l'action culturelle associée à l'inscription;Texte;ex. AM01, AM09...
+action_culturelle_associee;adh_inscription_attribut_action;inscription_attribut_action;Libellé de l'action culturelle associée à l'inscription (visite de classe, action éducative...);Texte;Visite de classe|Action éducative|Chut on lit|Médiation|Eveil au livre|Nouveaux habitants|Personnel Ville de Roubaix|Espace multimédia|Apéro culture|vide si non concerné
+code_arret_bus_zebre;adh_inscription_attribut_bus_code;;Code de l'arrêt du bus Zèbre (médiathèque itinérante) associé à l'inscription;Texte;ex. B01, B19...
+arret_bus_zebre;adh_inscription_attribut_bus;inscription_attribut_zebre;Nom de l'arrêt du bus Zèbre associé à l'inscription;Texte;ex. Arrêt Bus Rue de Rome|vide si non concerné
+code_type_structure_collective;adh_inscription_attribut_collect_code;;Code du type de structure collective, pour les adhérents "Collectivité";Texte;ex. COL01 à COL08
+type_structure_collective;adh_inscription_attribut_collect;inscription_attribut_collectivites;Libellé du type de structure collective;Texte;Elémentaire|Maternelle|Structure petite enfance|Accueil spécialisé|Centre social|ALSH|Périscolaire|secondaire|vide si non concerné
+nombre_visites_emprunt;nb_venues_prets;nb_venues_prets;Nombre de visites avec emprunt sur les 12 derniers mois (médiathèque et bus Zèbre confondus);Nombre entier;
+nombre_visites_emprunt_mediatheque;nb_venues_prets_mediatheque;nb_venues_prets_mediatheque;Nombre de visites avec emprunt à la médiathèque sur les 12 derniers mois;Nombre entier;
+nombre_visites_emprunt_zebre;nb_venues_prets_bus;nb_venues_prets_bus;Nombre de visites avec emprunt au bus Zèbre sur les 12 derniers mois;Nombre entier;
+nombre_visites_postes_informatiques;nb_venues_postes_informatiques;nb_venues_postes_informatiques;Nombre de visites avec utilisation des postes informatiques sur les 12 derniers mois;Nombre entier;
+nombre_visites_wifi;nb_venues_wifi;nb_venues_wifi;Nombre de visites avec connexion au wifi sur les 12 derniers mois;Nombre entier;
+nombre_visites_salle_etude;nb_venues_salle_etude;nb_venues_salle_etude;Nombre de visites en salle d'étude sur les 12 derniers mois;Nombre entier;
+nombre_visites_total;nb_venues;nb_venues;Nombre total de visites distinctes, tous usages confondus, sur les 12 derniers mois;Nombre entier;
+est_emprunteur;activite_emprunteur;activite_emprunteur;Indique si l'adhérent a emprunté au moins une fois sur les 12 derniers mois;Texte;Emprunteur|Non emprunteur
+est_emprunteur_zebre;activite_emprunteur_bus;activite_emprunteur_bus;Indique si l'adhérent a emprunté au bus Zèbre sur les 12 derniers mois;Texte;Emprunteur Zèbre|Non emprunteur Zèbre
+est_emprunteur_mediatheque;activite_emprunteur_med;activite_emprunteur_med;Indique si l'adhérent a emprunté à la médiathèque sur les 12 derniers mois;Texte;Emprunteur Médiathèque|Non emprunteur Médiathèque
+est_utilisateur_salle_etude;activite_salle_etude;activite_salle_etude;Indique si l'adhérent a fréquenté la salle d'étude sur les 12 derniers mois;Texte;Utilisateur Salle d'étude|Non utilisateur Salle d'étude
+est_utilisateur_postes_informatiques;activite_utilisateur_postes_informatiques;activite_utilisateur_postes_informatiques;Indique si l'adhérent a utilisé les postes informatiques sur les 12 derniers mois;Texte;Utilisateur postes informatiques|Non utilisateur postes informatiques
+est_utilisateur_wifi;activite_utilisateur_wifi;activite_utilisateur_wifi;Indique si l'adhérent a utilisé le wifi sur les 12 derniers mois;Texte;Utilisateur Wifi|Non utilisateur Wifi
+profil_usage;activite;activite;Synthèse des usages actifs de l'adhérent, combinés et séparés par " + ";Texte;aucune trace|ou toute combinaison de prêt, étude, postes, wifi (ex. "prêt + étude + postes")
