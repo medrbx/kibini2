@@ -77,4 +77,10 @@ perios['évolution emprunteurs distincts'] = round(
 
 dir_data = Config().get_config_data()
 file_out = join(dir_data, f"stats_periodiques_{date.today():%Y%m%d}.xlsx")
-perios.to_excel(file_out, index=False)
+with pd.ExcelWriter(file_out, engine='openpyxl') as writer:
+    perios.to_excel(writer, index=False, sheet_name='périodiques')
+    ws = writer.sheets['périodiques']
+    # largeur de chaque colonne adaptée à son contenu (en-tête compris), plafonnée à 50
+    for col in ws.columns:
+        largeur = max(len(str(cell.value)) if cell.value is not None else 0 for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(largeur + 2, 50)
