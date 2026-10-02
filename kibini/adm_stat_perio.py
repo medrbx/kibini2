@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import date
 from os.path import join
 
 from kiblib.utils.db import DbConn
@@ -75,4 +76,5 @@ perios['évolution emprunteurs distincts'] = round(
     (perios['emprunteurs distincts'] - perios['emprunteurs distincts n-1']) / perios['emprunteurs distincts n-1'] * 100, 1)
 
 dir_data = Config().get_config_data()
-perios.to_excel(join(dir_data, "perios.xlsx"), index=False)
+file_out = join(dir_data, f"stats_periodiques_{date.today():%Y%m%d}.xlsx")
+perios.to_excel(file_out, index=False)
