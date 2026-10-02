@@ -7,9 +7,22 @@ Les visites brutes (plutôt que les endpoints agrégés VisitsSummary/Actions
 /Goals) sont nécessaires pour exclure via
 kiblib.utils.matomo.is_server_tracked_visit() les visites trackées côté
 serveur (authentification/réservation) qui dupliquent une visite déjà
-trackée normalement par le navigateur de l'usager (cf. analyse bokeh du
-2026-09-17, ~4,5% des visites concernées). Cf.
+trackée normalement par le navigateur de l'usager. Cf.
 kiblib/utils/matomo.py -> MatomoClient.get_daily_stats_deduped().
+
+Limite connue : cette déduplication ne retire que les doublons confirmés
+individuellement (recoupement par contenu + bootstrap sur une IP réelle
+déjà vue pour le compte), soit un plancher estimé à ~15,3% des visites
+bokeh (analyse du 2026-09-17, cf. kibini/adm_analyse_estimation_doublons_
+bokeh.py). Une partie des doublons restants (jusqu'à ~21,8% au plafond
+extrapolé) ne peut pas être détectée individuellement, faute d'IP réelle
+connue pour le compte concerné -> stat_web2 reste donc légèrement
+surestimé sur ce solde (~6-7 points), de façon assumée : ce plafond est
+une estimation statistique globale (test null / bootstrap sur tout
+l'historique), pas reproductible sur une fenêtre d'import quotidienne
+(--last 1) sans revoir toute la méthodologie -> volontairement pas
+répercuté ici pour garder stat_web2 déterministe et auditable ligne à
+ligne plutôt que "corrigé" par un facteur non justifiable individuellement.
 
 Un seul site Matomo (section 'matomo': site_id dans kibini_conf.yml) reçoit
 le trafic interne et externe : les deux origines sont distinguées par un

@@ -77,11 +77,24 @@ def is_probable_bot(visit):
 # ATTENTION : contrairement à is_probable_bot, ceci NE détecte PAS des bots.
 # Ce sont de vraies visites d'usagers authentifiés (userId renseigné sur
 # ~87% des cas dans l'analyse) : la connexion/réservation est trackée par le
-# back-end plutôt que par le navigateur de l'usager, sans transmettre le
-# cookie visiteur (_pk_id) à l'appel de tracking serveur -> Matomo crée une
-# nouvelle visite (nouveau visitorId) au lieu de rattacher l'événement à la
-# visite de navigation déjà en cours. Le risque associé est donc la
-# SUR-COMPTABILISATION : une même visite réelle comptée deux fois.
+# back-end plutôt que par le navigateur de l'usager. Cette instance Matomo
+# tourne SANS cookie (vérifié le 2026-09-17 : la réponse de matomo.php ne
+# contient aucun Set-Cookie, configuration serveur volontaire, pas un
+# blocage navigateur) -> l'identification des visiteurs repose uniquement
+# sur le fallback 'config_id' (empreinte IP + navigateur + plugins), pour
+# TOUT le trafic du site, pas seulement ce cluster. L'appel serveur n'ayant
+# ni la même IP (le serveur applicatif, pas l'usager) ni la même empreinte
+# (pas de JS exécuté -> plugins vides) que le vrai navigateur, son
+# config_id diverge nécessairement -> Matomo crée une nouvelle visite au
+# lieu de rattacher l'événement à la visite de navigation déjà en cours.
+# Le risque associé est donc la SUR-COMPTABILISATION : une même visite
+# réelle comptée deux fois. Piste de correctif la plus réaliste (puisqu'il
+# n'existe pas de cookie à transmettre) : appeler setUserId() côté client
+# dès l'authentification (aujourd'hui seul l'appel serveur le fait) combiné
+# au réglage serveur Matomo enable_userid_overwrites_visitorid, qui permet
+# de rattacher deux visites au même userId même avec des identifiants
+# différents (cf. https://fr.matomo.org/faq/general/how-are-requests-with-a-user-id-tracked/) —
+# nécessite une intervention chez Biblibre, qui héberge l'instance.
 #
 # Estimation du taux de doublons (analyse du 2026-09-17, bokeh,
 # 136 321 visites) par recoupement temporel avec une autre visite (autre

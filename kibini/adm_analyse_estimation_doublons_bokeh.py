@@ -3,11 +3,17 @@ Estimation du taux de visites bokeh comptées en double à cause des
 visites trackées côté serveur (cf. kiblib.utils.matomo.is_server_tracked_visit).
 
 Contexte : quand une action nécessite d'être authentifié (ex. réserver un
-document), le portail déclenche un appel de tracking Matomo côté serveur qui
-ne transmet pas le cookie visiteur (_pk_id) du navigateur -> Matomo crée une
-nouvelle visite au lieu de rattacher l'événement à la visite de navigation
-déjà en cours. Ce script mesure combien de ces visites "serveur" sont en
-fait des doublons d'une visite déjà trackée normalement, par deux passes :
+document), le portail déclenche un appel de tracking Matomo côté serveur.
+Cette instance Matomo tourne sans cookie (vérifié le 2026-09-17 : la
+réponse de matomo.php ne contient aucun Set-Cookie -> configuration
+serveur volontaire, pas un blocage navigateur) : l'identification des
+visiteurs repose sur le fallback 'config_id' (empreinte IP + navigateur +
+plugins). L'appel serveur n'ayant ni la même IP ni la même empreinte (pas
+de JS exécuté) que le vrai navigateur, son config_id diverge -> Matomo
+crée une nouvelle visite au lieu de rattacher l'événement à la visite de
+navigation déjà en cours. Ce script mesure combien de ces visites
+"serveur" sont en fait des doublons d'une visite déjà trackée normalement,
+par deux passes :
 
   1. Recoupement par contenu : la visite serveur référence une notice
      précise (URL contenant /id/<n> ou /record_id/<n>) -> on cherche une
