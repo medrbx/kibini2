@@ -1,5 +1,6 @@
 data/*
 !data/openData
+!data/periodiques_titres_couts.xlsx
 
 data_lucas
 kibini/conf/kibini_conf.yml

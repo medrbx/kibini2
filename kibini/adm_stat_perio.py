@@ -52,30 +52,50 @@ perios = perios.sort_values(by='ccode')
 perios = perios[['notice', 'titre', 'collection', 'site', 'nb exemplaires',
                  'nb prêts', 'emprunteurs distincts']]
 
-# Prêts de l'année précédente (n-1)
-query = """SELECT biblionumber, itemnumber, issue_id, borrowernumber, branch
-FROM statdb.stat_issues
-WHERE itemtype = 'PE'
-AND DATE(issuedate) >= CURDATE() - INTERVAL 2 YEAR
-AND DATE(issuedate) <= CURDATE() - INTERVAL 1 YEAR"""
-prets2 = pd.read_sql(query, db_conn)
-prets_titre_nb2 = prets2.groupby(['biblionumber', 'branch'])['issue_id'].count().reset_index()
-prets_titre_emprunteurs_distincts2 = prets2.groupby(['biblionumber', 'branch'])['borrowernumber'].nunique().reset_index()
+# Coût de l'abonnement 2026 (fichier de correspondance biblionumber / tableau des abonnements)
+dir_data = Config().get_config_data()
+couts = pd.read_excel(join(dir_data, "periodiques_titres_couts.xlsx"),
+                      usecols=['biblionumber', 'coût 2026'])
+couts.columns = ['notice', 'coût abonnement 2026']
+perios = perios.merge(couts.drop_duplicates('notice'), on='notice', how='left')
 
-prets_titre_nb2.columns = ['notice', 'site', 'nb prêts n-1']
-prets_titre_emprunteurs_distincts2.columns = ['notice', 'site', 'emprunteurs distincts n-1']
-perios = perios.merge(prets_titre_nb2, on=['notice', 'site'], how='left')
-perios = perios.merge(prets_titre_emprunteurs_distincts2, on=['notice', 'site'], how='left')
 
-perios['nb prêts n-1'] = perios['nb prêts n-1'].fillna(0).astype(int)
-perios['emprunteurs distincts n-1'] = perios['emprunteurs distincts n-1'].fillna(0).astype(int)
+def ajoute_periode(perios, suffixe, debut, fin):
+    """Ajoute les colonnes de prêts et d'emprunteurs distincts d'une période passée.
+    debut et fin sont des intervalles SQL (ex. '2 YEAR') relatifs à CURDATE()."""
+    query = f"""SELECT biblionumber, itemnumber, issue_id, borrowernumber, branch
+    FROM statdb.stat_issues
+    WHERE itemtype = 'PE'
+    AND DATE(issuedate) >= CURDATE() - INTERVAL {debut}
+    AND DATE(issuedate) < CURDATE() - INTERVAL {fin}"""
+    prets_p = pd.read_sql(query, db_conn)
+    nb = prets_p.groupby(['biblionumber', 'branch'])['issue_id'].count().reset_index()
+    emprunteurs = prets_p.groupby(['biblionumber', 'branch'])['borrowernumber'].nunique().reset_index()
+    nb.columns = ['notice', 'site', f'nb prêts {suffixe}']
+    emprunteurs.columns = ['notice', 'site', f'emprunteurs distincts {suffixe}']
+    perios = perios.merge(nb, on=['notice', 'site'], how='left')
+    perios = perios.merge(emprunteurs, on=['notice', 'site'], how='left')
+    for col in (f'nb prêts {suffixe}', f'emprunteurs distincts {suffixe}'):
+        perios[col] = perios[col].fillna(0).astype(int)
+    return perios
 
-# Évolutions (inf/NaN quand n-1 vaut 0)
+
+# Prêts des années précédentes (n-1 : entre 2 ans et 1 an ; n-2 : entre 3 ans et 2 ans)
+perios = ajoute_periode(perios, 'n-1', '2 YEAR', '1 YEAR')
+perios = ajoute_periode(perios, 'n-2', '3 YEAR', '2 YEAR')
+
+# Évolutions n vs n-1, n-1 vs n-2 et n vs n-2 (inf/NaN quand la valeur de référence vaut 0)
 perios['évolution prêts'] = round((perios['nb prêts'] - perios['nb prêts n-1']) / perios['nb prêts n-1'] * 100, 1)
 perios['évolution emprunteurs distincts'] = round(
     (perios['emprunteurs distincts'] - perios['emprunteurs distincts n-1']) / perios['emprunteurs distincts n-1'] * 100, 1)
+perios['évolution prêts n-1/n-2'] = round(
+    (perios['nb prêts n-1'] - perios['nb prêts n-2']) / perios['nb prêts n-2'] * 100, 1)
+perios['évolution emprunteurs distincts n-1/n-2'] = round(
+    (perios['emprunteurs distincts n-1'] - perios['emprunteurs distincts n-2']) / perios['emprunteurs distincts n-2'] * 100, 1)
+perios['évolution prêts n/n-2'] = round((perios['nb prêts'] - perios['nb prêts n-2']) / perios['nb prêts n-2'] * 100, 1)
+perios['évolution emprunteurs distincts n/n-2'] = round(
+    (perios['emprunteurs distincts'] - perios['emprunteurs distincts n-2']) / perios['emprunteurs distincts n-2'] * 100, 1)
 
-dir_data = Config().get_config_data()
 file_out = join(dir_data, f"stats_periodiques_{date.today():%Y%m%d}.xlsx")
 with pd.ExcelWriter(file_out, engine='openpyxl') as writer:
     perios.to_excel(writer, index=False, sheet_name='périodiques')
