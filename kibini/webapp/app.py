@@ -22,7 +22,7 @@ def create_app():
 
     @app.context_processor
     def inject_appname():
-        return {"appname": APPNAME}
+        return {"appname": APPNAME, "koha_staff": services.koha_staff_url()}
 
     def _kibana_view(page):
         def view():

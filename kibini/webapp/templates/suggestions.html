@@ -45,14 +45,14 @@
                     </td>
                     <td>{{ suggestion.date }}</td>
                     <td>
-                        <a href="https://koha.ville-roubaix.fr/cgi-bin/koha/suggestion/suggestion.pl?suggestionid={{ suggestion.suggestionid }}&op=edit">{{ suggestion.title }}</a>
+                        <a href="{{ koha_staff }}/cgi-bin/koha/suggestion/suggestion.pl?suggestionid={{ suggestion.suggestionid }}&op=edit">{{ suggestion.title }}</a>
                         {% if suggestion.author %}<br>auteur : {{ suggestion.author }}{% endif %}
                         {% if suggestion.publishercode %}<br>éditeur : {{ suggestion.publishercode }}{% endif %}
                         {% if suggestion.collectiontitle %}<br>collection : {{ suggestion.collectiontitle }}{% endif %}
                         {% if suggestion.copyrightdate %}<br>date de publication : {{ suggestion.copyrightdate }}{% endif %}
                         {% if suggestion.isbn %}<br>isbn : {{ suggestion.isbn }} {% endif %}
                     </td>
-                    <td><a href="https://koha.ville-roubaix.fr/cgi-bin/koha/members/moremember.pl?borrowernumber={{ suggestion.suggestedby }}">{{ suggestion.surnamesuggestedby }} {{ suggestion.firstnamesuggestedby }}</a></td>
+                    <td><a href="{{ koha_staff }}/cgi-bin/koha/members/moremember.pl?borrowernumber={{ suggestion.suggestedby }}">{{ suggestion.surnamesuggestedby }} {{ suggestion.firstnamesuggestedby }}</a></td>
                     <td>{{ suggestion.note }}</td>
                     <td>{{ suggestion.branchcode }}</td>
                 </tr>

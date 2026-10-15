@@ -12,9 +12,10 @@ from kiblib.utils.conf import Config
 from kiblib.utils.db import DbConn
 from kiblib.utils.email_sender import send_email as _send_email
 
-# Hôte du back-office Koha (staff), déjà utilisé en dur dans tous les templates
-# .tt d'origine pour les liens vers les notices/adhérents/suggestions.
-KOHA_STAFF_URL = "https://koha.ville-roubaix.fr"
+def koha_staff_url():
+    # Hôte du back-office Koha (staff) : API REST et liens vers les
+    # notices/adhérents/suggestions dans les templates.
+    return Config().get_config_webservice()["koha_staff"]
 
 
 def _engine():
@@ -71,7 +72,7 @@ def _acquereur_mail(managedby):
 
 def mod_suggestion2(suggestionid, managedby):
     conf = Config().get_config_webservice()
-    url = f"{KOHA_STAFF_URL}/api/v1/suggestions/{suggestionid}"
+    url = f"{koha_staff_url()}/api/v1/suggestions/{suggestionid}"
     requests.put(
         url,
         json={"managed_by": int(managedby)},
@@ -85,7 +86,7 @@ def construction_courriel(managedby, title):
     subject = f"Nouvelle suggestion : {title}"
     msg = (
         f"Nouvelle suggestion : {title}\n\n"
-        f"Voir {KOHA_STAFF_URL}/cgi-bin/koha/suggestion/suggestion.pl#ASKED"
+        f"Voir {koha_staff_url()}/cgi-bin/koha/suggestion/suggestion.pl#ASKED"
     )
     return from_, email, subject, msg
 

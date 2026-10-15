@@ -5,6 +5,7 @@ database:
     pwd: toto
 webservice:
   base: https://toto
+  koha_staff: https://toto
   user: toto
   pwd: toto
 opteio:
