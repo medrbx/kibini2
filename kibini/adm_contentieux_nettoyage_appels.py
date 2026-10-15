@@ -20,9 +20,13 @@ ailleurs.
 
     python adm_contentieux_nettoyage_appels.py                  # simulation
     python adm_contentieux_nettoyage_appels.py --appliquer      # modification
+    python adm_contentieux_nettoyage_appels.py --appliquer --borrowernumber 12345   # une fiche de test
+
+Avec --borrowernumber, seules les fiches indiquées sont traitées, et seulement
+si elles remplissent le critère (aucun retard de plus de 28 jours).
 """
 import argparse
-from datetime import date
+from datetime import datetime
 from os.path import join
 
 import pandas as pd
@@ -59,6 +63,8 @@ def parse_args():
                         help="modifie réellement Koha (sinon : simulation)")
     parser.add_argument("--limite", type=int,
                         help="nombre maximum de fiches à traiter")
+    parser.add_argument("--borrowernumber", type=int, nargs="+",
+                        help="ne traiter que ces adhérents (s'ils remplissent le critère)")
     return parser.parse_args()
 
 
@@ -77,12 +83,18 @@ log.add_info(f"Lancement {log.script_name} ({'modification' if args.appliquer el
 
 db_conn = DbConn().create_engine()
 adherents = pd.read_sql(QUERY, db_conn)
+if args.borrowernumber:
+    hors_critere = sorted(set(args.borrowernumber) - set(adherents["borrowernumber"]))
+    if hors_critere:
+        print(f"Non traités (pas d'information d'appel, ou retard de plus de {SEUIL_RETARD} jours) : {hors_critere}")
+        log.add_info(f"borrowernumber hors critère, non traités : {hors_critere}")
+    adherents = adherents[adherents["borrowernumber"].isin(args.borrowernumber)]
 if args.limite:
     adherents = adherents.head(args.limite)
 
-# sauvegarde des valeurs avant effacement
+# sauvegarde des valeurs avant effacement (un fichier par lancement, pour ne jamais écraser une sauvegarde)
 dir_data = Config().get_config_data()
-file_out = join(dir_data, f"contentieux_nettoyage_appels_{date.today():%Y%m%d}.csv")
+file_out = join(dir_data, f"contentieux_nettoyage_appels_{datetime.now():%Y%m%d_%H%M%S}.csv")
 adherents.to_csv(file_out, index=False)
 print(f"{len(adherents)} fiches concernées, sauvegardées dans {file_out}")
 log.add_info(f"{len(adherents)} fiches concernées, sauvegarde : {file_out}")
