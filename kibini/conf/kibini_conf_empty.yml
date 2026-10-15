@@ -11,6 +11,15 @@ webservice:
 opteio:
     login: toto
     password: toto
+matomo:
+    base: https://toto
+    token_auth: toto
+    site_id: 0
+    ip_interne: 0.0.0.0
+matomo_bnr:
+    base: https://toto
+    token_auth: toto
+    site_id: 0
 salt: toto
 dir_log: /home/kibini/kibini2/log
 dir_data: /home/kibini/kibini2/data
