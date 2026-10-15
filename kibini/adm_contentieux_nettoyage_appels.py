@@ -84,9 +84,16 @@ log.add_info(f"Lancement {log.script_name} ({'modification' if args.appliquer el
 db_conn = DbConn().create_engine()
 adherents = pd.read_sql(QUERY, db_conn)
 if args.borrowernumber:
-    hors_critere = sorted(set(args.borrowernumber) - set(adherents["borrowernumber"]))
+    demandes = ",".join(str(n) for n in args.borrowernumber)
+    existants = set(pd.read_sql(f"SELECT borrowernumber FROM koha_prod.borrowers WHERE borrowernumber IN ({demandes})",
+                                db_conn)["borrowernumber"])
+    inexistants = sorted(set(args.borrowernumber) - existants)
+    hors_critere = sorted(existants - set(adherents["borrowernumber"]))
+    if inexistants:
+        print(f"Non traités, adhérent inexistant : {inexistants}")
+        log.add_info(f"borrowernumber inexistants, non traités : {inexistants}")
     if hors_critere:
-        print(f"Non traités (pas d'information d'appel, ou retard de plus de {SEUIL_RETARD} jours) : {hors_critere}")
+        print(f"Non traités, pas d'information d'appel ou retard de plus de {SEUIL_RETARD} jours : {hors_critere}")
         log.add_info(f"borrowernumber hors critère, non traités : {hors_critere}")
     adherents = adherents[adherents["borrowernumber"].isin(args.borrowernumber)]
 if args.limite:
