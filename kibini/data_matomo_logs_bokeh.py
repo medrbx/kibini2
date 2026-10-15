@@ -66,7 +66,8 @@ from kiblib.utils.matomo import MatomoClient
 csv.field_size_limit(sys.maxsize)
 
 DEFAULT_START = date(2026, 3, 31)  # avant : site de test, pas le portail de prod
-DEFAULT_OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "bokeh_visites_detail.csv")
+# dossier data/ à la racine du dépôt (exclu par .gitignore)
+DEFAULT_OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "bokeh_visites_detail.csv")
 PAGE_SIZE = 100
 PAUSE_BETWEEN_APPELS = 0.2  # secondes, pour ne pas marteler l'API
 

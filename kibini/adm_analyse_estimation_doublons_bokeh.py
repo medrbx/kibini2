@@ -42,7 +42,7 @@ relancer sur un CSV à jour si besoin d'un chiffre récent.
 
 Usage :
     python adm_analyse_estimation_doublons_bokeh.py [chemin_csv] [n_iter]
-    (par défaut : kibini/data/bokeh_visites_detail.csv, n_iter=20)
+    (par défaut : data/bokeh_visites_detail.csv à la racine du dépôt, n_iter=20)
 """
 import csv
 import json
@@ -56,7 +56,7 @@ from collections import defaultdict
 csv.field_size_limit(sys.maxsize)
 
 DEFAULT_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "data", "bokeh_visites_detail.csv"
+    os.path.dirname(os.path.abspath(__file__)), "..", "data", "bokeh_visites_detail.csv"
 )
 ID_RE = re.compile(r"/(?:id|record_id)/(\d{5,})")
 GAP = 300  # tolerance en secondes entre deux fenetres temporelles
