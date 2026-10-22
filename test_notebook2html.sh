@@ -8,7 +8,7 @@ mkdir -p "$data_dir"
 cd "$kibini2"
 
 # Execution et publication d'un notebook en particulier
-for filename in notebook_kibini2_lgp_activite30j
+for filename in notebook_kibini2_med_activite_hebdo
 
 
 do
