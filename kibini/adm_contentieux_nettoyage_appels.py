@@ -13,12 +13,19 @@ identifiants viennent de la section "webservice" de conf/kibini_conf.yml.
 Dans l'API, B_address et
 B_address2 s'appellent altaddress_address et altaddress_address2.
 
+Les fiches à traiter viennent d'un rapport SQL sauvegardé dans Koha, appelé via
+svc/report comme les listes de la webapp (rapport RAPPORT_NETTOYAGE_APPELS, sur
+l'hôte "base" de la section "webservice") : les données sont donc
+celles de la production, au moment de l'appel. Le rapport est limité à 500
+fiches (LIMIT 500) : relancer le script traite les suivantes, puisque les fiches
+nettoyées sortent du rapport. Critère du rapport : informations d'appel
+renseignées, et aucun prêt en cours dont l'échéance + 28 jours est atteinte.
+
 Par défaut, le script ne modifie rien : il écrit seulement la liste des fiches
 concernées. Ajouter --appliquer pour modifier Koha.
 
 Avec --appliquer, chaque fiche est relue dans Koha juste avant d'être modifiée
-(la base lue par DbConn est une copie rechargée chaque nuit, qui ne voit ni les
-nettoyages du jour ni les nouveaux retards) :
+(filet de sécurité, le rapport pouvant être mis en cache par Koha) :
 - une fiche dont les champs d'appel sont déjà vides est ignorée ;
 - une fiche qui a, dans Koha, un prêt en cours en retard d'au moins 28 jours
   est ignorée (GET /api/v1/checkouts ; le compte webservice doit avoir le droit
@@ -33,7 +40,7 @@ n'existent nulle part ailleurs.
     python adm_contentieux_nettoyage_appels.py --appliquer --borrowernumber 12345   # une fiche de test
 
 Avec --borrowernumber, seules les fiches indiquées sont traitées, et seulement
-si elles remplissent le critère (aucun retard de plus de 28 jours).
+si elles figurent dans la réponse du rapport.
 """
 import argparse
 from datetime import date, datetime
@@ -43,24 +50,14 @@ import pandas as pd
 import requests
 
 from kiblib.utils.conf import Config
-from kiblib.utils.db import DbConn
 from kiblib.utils.log import Log
 
 SEUIL_RETARD = 28
 
-# adhérents avec des informations d'appel, sans prêt en retard de plus de 28 jours
-QUERY = f"""
-SELECT b.borrowernumber, b.cardnumber, b.categorycode, b.B_address, b.B_address2
-FROM koha_prod.borrowers b
-WHERE ((b.B_address IS NOT NULL AND TRIM(b.B_address) != '')
-    OR (b.B_address2 IS NOT NULL AND TRIM(b.B_address2) != ''))
-  AND NOT EXISTS (
-    SELECT 1 FROM koha_prod.issues i
-    WHERE i.borrowernumber = b.borrowernumber
-      AND DATE(i.date_due) + INTERVAL {SEUIL_RETARD} DAY <= CURDATE()
-  )
-ORDER BY b.borrowernumber
-"""
+# rapport SQL Koha sauvegardé (même convention que les rapports de webapp/services.py)
+RAPPORT_NETTOYAGE_APPELS = "343"
+# colonnes renvoyées par le rapport Koha, dans l'ordre de son SELECT
+COLONNES_RAPPORT = ["borrowernumber", "cardnumber", "categorycode", "B_address", "B_address2"]
 
 # champs obligatoires du corps d'un PUT /api/v1/patrons : repris tels quels
 CHAMPS_OBLIGATOIRES = ["surname", "library_id", "category_id"]
@@ -74,12 +71,24 @@ def parse_args():
     parser.add_argument("--limite", type=int,
                         help="nombre maximum de fiches à modifier (en simulation : à lister)")
     parser.add_argument("--borrowernumber", type=int, nargs="+",
-                        help="ne traiter que ces adhérents (s'ils remplissent le critère)")
+                        help="ne traiter que ces adhérents (s'ils figurent dans le rapport)")
     return parser.parse_args()
 
 
 # arrêt du traitement après ce nombre d'échecs consécutifs (API injoignable, droits insuffisants...)
 MAX_ECHECS_CONSECUTIFS = 5
+
+
+def lire_rapport(conf):
+    # rapport SQL sauvegardé dans Koha, appelé via svc/report comme dans la webapp (webapp/services.py)
+    reponse = requests.get(f"{conf['base']}/cgi-bin/koha/svc/report", params={"id": RAPPORT_NETTOYAGE_APPELS})
+    reponse.raise_for_status()
+    lignes = reponse.json()
+    if not isinstance(lignes, list):
+        raise RuntimeError(f"réponse inattendue du rapport Koha : {str(lignes)[:200]}")
+    adherents = pd.DataFrame(lignes, columns=COLONNES_RAPPORT)
+    adherents["borrowernumber"] = adherents["borrowernumber"].astype(int)
+    return adherents
 
 
 def lire_fiche(koha_staff, borrowernumber, auth):
@@ -111,27 +120,25 @@ args = parse_args()
 log = Log()
 log.add_info(f"Lancement {log.script_name} ({'modification' if args.appliquer else 'simulation'})")
 
-db_conn = DbConn().create_engine()
-adherents = pd.read_sql(QUERY, db_conn)
+conf = Config().get_config_webservice()
+adherents = lire_rapport(conf)
+print(f"{len(adherents)} fiches renvoyées par le rapport Koha {RAPPORT_NETTOYAGE_APPELS} (500 au plus)")
+log.add_info(f"{len(adherents)} fiches renvoyées par le rapport Koha {RAPPORT_NETTOYAGE_APPELS}")
 if args.borrowernumber:
-    demandes = ",".join(str(n) for n in args.borrowernumber)
-    existants = set(pd.read_sql(f"SELECT borrowernumber FROM koha_prod.borrowers WHERE borrowernumber IN ({demandes})",
-                                db_conn)["borrowernumber"])
-    inexistants = sorted(set(args.borrowernumber) - existants)
-    hors_critere = sorted(existants - set(adherents["borrowernumber"]))
-    if inexistants:
-        print(f"Non traités, adhérent inexistant : {inexistants}")
-        log.add_info(f"borrowernumber inexistants, non traités : {inexistants}")
-    if hors_critere:
-        print(f"Non traités, pas d'information d'appel ou retard de plus de {SEUIL_RETARD} jours : {hors_critere}")
-        log.add_info(f"borrowernumber hors critère, non traités : {hors_critere}")
+    absents = sorted(set(args.borrowernumber) - set(adherents["borrowernumber"]))
+    if absents:
+        print(f"Non traités, absents du rapport (pas d'information d'appel, retard d'au moins {SEUIL_RETARD} jours, "
+              f"au-delà des 500 premières fiches, ou adhérent inexistant) : {absents}")
+        log.add_info(f"borrowernumber absents du rapport, non traités : {absents}")
     adherents = adherents[adherents["borrowernumber"].isin(args.borrowernumber)]
-print(f"{len(adherents)} fiches remplissent le critère dans la base lue")
-log.add_info(f"{len(adherents)} fiches remplissent le critère dans la base lue")
 
 # sauvegarde : un fichier par lancement, pour ne jamais écraser une sauvegarde
 dir_data = Config().get_config_data()
 file_out = join(dir_data, f"contentieux_nettoyage_appels_{datetime.now():%Y%m%d_%H%M%S}.csv")
+n = 2
+while exists(file_out):   # deux lancements dans la même seconde
+    file_out = join(dir_data, f"contentieux_nettoyage_appels_{datetime.now():%Y%m%d_%H%M%S}_{n}.csv")
+    n += 1
 
 if not args.appliquer:
     liste = adherents.head(args.limite) if args.limite else adherents
@@ -141,7 +148,6 @@ if not args.appliquer:
     print(f"Simulation : aucune modification. {len(liste)} fiches listées dans {file_out}")
     print("Relancer avec --appliquer pour modifier Koha.")
 else:
-    conf = Config().get_config_webservice()
     koha_staff = conf["koha_staff"]
     auth = (conf["user"], conf["pwd"])
     modifiees, deja_vides, en_retard, echecs, echecs_consecutifs = 0, 0, [], [], 0
