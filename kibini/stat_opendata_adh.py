@@ -20,9 +20,13 @@ import pandas as pd
 #      -> data/openData/adherents_2015-<annee>_opendata.csv.gz
 #
 # Les colonnes d'attributs (action culturelle, arrêt Zèbre, structure
-# collective) sont vides à partir de 2023 : stat_adherents.inscription_attribut
-# ne contient plus le JSON qui permettait de les reconstituer (voir README,
-# section "inscription_attribut a changé de format dans le temps").
+# collective) sont reconstituées depuis stat_adherents.inscription_attribut
+# par préfixe de code (AM, B, COL, PCS) - Adherent.get_inscription_attributs_code_by_prefix(),
+# voir README, section "inscription_attribut a changé de format dans le temps".
+#
+# L'historique data/adherents_2015-<annee>.csv.gz n'est pas versionné
+# (data/* ignoré par Git) : la référence est conservée dans le dépôt rbx-adh
+# (rbx-adh/data/), à copier dans data/ avant de lancer ce script.
 
 DIR_DATA = "data"
 DIR_OPENDATA = "data/openData"
@@ -83,7 +87,6 @@ RENAME_MAP = {
     "adh_inscription_carte_personnalite": "type_adherent",
     "adh_inscription_nb_annees_adhesion": "anciennete_adhesion_annees",
     "adh_inscription_nb_annees_adhesion_tra": "tranche_anciennete_adhesion",
-    "inscription_attribut": "attributs_inscription_bruts",
     "adh_inscription_attribut_action_code": "code_action_culturelle",
     "adh_inscription_attribut_action": "action_culturelle_associee",
     "adh_inscription_attribut_bus_code": "code_arret_bus_zebre",
@@ -106,6 +109,12 @@ RENAME_MAP = {
     "activite": "profil_usage",
 }
 
+# inscription_attribut (codes bruts 'AM09|B03') volontairement absent de
+# RENAME_MAP, donc non publié : redondant avec les colonnes action / arrêt
+# Zèbre / structure (code + libellé), sans libellé, et contenait les codes
+# PCS exclus ci-dessous. Reste dans l'historique : il sert à reconstituer ces
+# colonnes (Adherent.get_inscription_attributs_code_by_prefix()).
+#
 # Catégorie socio-professionnelle jugée non fiable (valeurs incohérentes
 # constatées, ex. code PCS02 associé à un libellé "Artisans, commerçants..."
 # non représentatif de la réalité observée) - exclue volontairement.
@@ -151,6 +160,12 @@ def extraire(date):
         raise SystemExit(f"Aucune ligne dans statdb.stat_adherents pour date_extraction = {date}.")
     adh = Adherent(df=df, con=db_conn, c2l=c2l.dict_codes_lib)
     adh.get_adherent_opendata_data()
+    # adh_age ('a47', réécrit par get_age_code_by_age) porte le nom "age" dans
+    # l'historique : renommé pour que la fusion aligne bien les colonnes.
+    # sexe (Homme/Femme, vocabulaire de l'ancien jeu data MEL) retiré : absent
+    # de l'historique, il entrerait en collision avec adh_sexe renommé "sexe"
+    # à la publication.
+    adh.df = adh.df.rename(columns={"adh_age": "age"}).drop(columns=["sexe"])
     # Export au format brut (colonnes internes adh_*), pas le schéma final grand
     # public : le renommage se fait une seule fois, sur le fichier fusionné.
     sortie = fichier_annee(date[:4])
@@ -175,7 +190,64 @@ def fusionner(annee):
 
 def publier():
     chemin_histo, annee_fin = historique_le_plus_recent()
-    df = pd.read_csv(chemin_histo)
+    df = pd.read_csv(chemin_histo, low_memory=False)
+    # Valeurs manquantes écrites en toutes lettres ('Nan') dans l'historique
+    # produit avant ce script (inscription_attribut, code IRIS, sexe) : remises
+    # à vide.
+    df = df.replace("Nan", pd.NA)
+    # Libellés d'attributs recalculés depuis les codes avec la table courante
+    # (ex. arrêt Zèbre B26, absent de la table au moment où l'historique
+    # 2023-2025 a été produit) - table en dur, pas d'accès base nécessaire.
+    from kiblib.utils.code2libelle import Code2Libelle
+    c2l = Code2Libelle(None)
+    c2l.get_val_attribut()
+    for col in ["action", "bus", "collect"]:
+        df[f"adh_inscription_attribut_{col}"] = df[f"adh_inscription_attribut_{col}_code"].map(
+            c2l.dict_codes_lib["attributs"])
+
+    collectivite = df["adh_inscription_carte_personnalite_code"] == "I"
+
+    # Sexe : l'historique jusqu'à 2023 porte un code dérivé (NP pour les
+    # collectivités), les extractions 2024+ le code brut Koha (N pour les
+    # collectivités, O, vide). Ramené au même vocabulaire M/F/NP/NC.
+    df.loc[collectivite, "adh_sexe_code"] = "NP"
+    df.loc[~df["adh_sexe_code"].isin(["M", "F", "NP"]), "adh_sexe_code"] = "NC"
+    df["adh_sexe"] = df["adh_sexe_code"].map(
+        {"F": "Féminin", "M": "Masculin", "NP": "Non pertinent", "NC": "Inconnu"})
+
+    # age stocké sous la forme 'a47' (clé de statdb.lib_age2) : publié en
+    # nombre entier, comme annoncé dans le dictionnaire de données ; vide pour
+    # les collectivités (une date de naissance saisie pour une structure n'a
+    # pas de sens).
+    df["age"] = pd.to_numeric(df["age"].astype("string").str.lstrip("a"), errors="coerce").astype("Int64")
+    df.loc[collectivite, "age"] = pd.NA
+    df["adh_inscription_nb_annees_adhesion"] = df["adh_inscription_nb_annees_adhesion"].astype("Int64")
+
+    # IRIS : uniquement pour les Roubaisiens, et seulement un vrai code IRIS de
+    # Roubaix (59512 + 4 chiffres). Retire les valeurs parasites ('0', 'FR',
+    # adresse saisie dans le champ...), les IRIS d'autres communes et les IRIS
+    # de Roubaix attribués à un adhérent déclarant une autre commune.
+    geo_iris = ["adh_geo_rbx_iris_code", "adh_geo_rbx_iris", "adh_geo_rbx_quartier", "geo_rbx_secteur"]
+    iris_valide = (
+        (df["adh_geo_gentilite"] == "Roubaisien")
+        & df["adh_geo_rbx_iris_code"].astype("string").str.fullmatch(r"59512\d{4}").fillna(False))
+    df.loc[~iris_valide, geo_iris] = pd.NA
+    df["adh_geo_rbx_iris"] = df["adh_geo_rbx_iris"].replace({"EDOUART VAILLANT": "EDOUARD VAILLANT"})
+
+    # profil_usage : "postes" (historique jusqu'à 2025) publié "ordinateurs",
+    # plus parlant pour le grand public - même libellé que
+    # Adherent.get_opendata_activite() pour les extractions suivantes.
+    df["activite"] = df["activite"].str.replace(r"\bpostes\b", "ordinateurs", regex=True)
+
+    # Valeurs publiées en libellés plutôt qu'en codes techniques.
+    df["adh_geo_ville_bm"] = df["adh_geo_ville_bm"].map(
+        {"ville_bm": "Oui", "non": "Non", "NP": "Non pertinent"})
+    # Préfixes de tri ('a/ 0', 'f/ 5 - 10 ans') retirés, unité ajoutée aux
+    # tranches d'une seule année ('0' -> '0 an', '2' -> '2 ans') pour rester
+    # cohérent avec '5 - 10 ans'.
+    df["adh_inscription_nb_annees_adhesion_tra"] = df["adh_inscription_nb_annees_adhesion_tra"].str.replace(
+        r"^[a-z]/ ", "", regex=True).replace(
+        {"0": "0 an", "1": "1 an", "2": "2 ans", "3": "3 ans", "4": "4 ans"})
     df = df.drop(columns=COLONNES_A_SUPPRIMER)
     df = df.rename(columns=RENAME_MAP)
     df = df[list(RENAME_MAP.values())]

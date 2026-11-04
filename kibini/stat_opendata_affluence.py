@@ -1,16 +1,16 @@
 import argparse
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 
 from kiblib.utils.db import DbConn
-from kiblib.utils.frequentation import calculer_occupation
+from kiblib.utils.frequentation import calculer_occupation, calculer_occupation_sessions
 
 # Jeu open data "affluence horaire" publié sur data.lillemetropole.fr
 # (ville_roubaix:affluence_et_activites_de_la_grand_plage_h_par_h_depuis_2014),
 # arrêté au 2020-12-31 à l'origine, enrichi de colonnes absentes du jeu
 # d'origine (connexions_wifi, impressions, frequentation_etude, entrees,
-# occupation). Remplace stat_affluence2oa.py + stat_affluence_concat.py.
+# occupation, occupation_ordinateurs). Remplace stat_affluence2oa.py + stat_affluence_concat.py.
 # À lancer depuis la racine du dépôt (chemins relatifs "data/...").
 #
 #   python kibini/stat_opendata_affluence.py
@@ -26,7 +26,7 @@ from kiblib.utils.frequentation import calculer_occupation
 #      (seulement si --granularite 60 et --start-date 2021-01-01)
 #
 # Prêts/retours viennent de statdb.stat_issues (branche MED = Grand Plage),
-# connexions postes de statdb.stat_webkiosk (à la demande - ni cette table ni
+# connexions postes et occupation_ordinateurs de statdb.stat_webkiosk (à la demande - ni cette table ni
 # stat_sessions_webkiosk ne sont alimentées en continu actuellement, voir
 # README, section "Jeu open data affluence horaire"), wifi de
 # statdb.stat_wifi, impressions (nombre de pages) de statdb.stat_impressions,
@@ -43,7 +43,7 @@ FICHIER_COMPLET = f"{DIR_OPENDATA}/affluence_grand_plage_h_par_h_complet.csv"
 COLONNES = [
     "date", "annee", "jour", "mois", "heure",
     "retours", "prets", "connexions_postes", "connexions_wifi", "impressions",
-    "frequentation_etude", "entrees", "occupation"]
+    "frequentation_etude", "entrees", "occupation", "occupation_ordinateurs"]
 
 METRIQUES = [
     "prets", "retours", "connexions_postes", "connexions_wifi", "impressions",
@@ -61,7 +61,8 @@ def parse_args():
     parser.add_argument(
         "--end-date", default=date.today().isoformat(),
         help="Fin de la plage à extraire (YYYY-MM-DD), exclue (défaut : aujourd'hui, "
-             "donc jusqu'à hier inclus).")
+             "donc jusqu'à hier inclus), ramenée si besoin à la dernière date "
+             "chargée dans toutes les sources.")
     parser.add_argument(
         "--granularite", type=int, default=60, metavar="MINUTES",
         help="Pas de temps des créneaux, en minutes (défaut : 60). Doit "
@@ -83,6 +84,78 @@ def parse_args():
             "fiable avant ~2019 - voir README."
         )
     return start_date, end_date, args.granularite
+
+
+def completer_entrees(entrees, entrees_det):
+    """Complète entrees (statdb.stat_entrees, agrégée à l'heure) avec le détail
+    statdb.stat_entrees_det pour les jours absents de stat_entrees.
+
+    stat_entrees a perdu de nombreux jours entre 2015 et 2020 (107 jours en
+    2019 contre 254 dans stat_entrees_det, 56 contre 207 en 2020) - cause de la
+    "chute" apparente des entrées en 2019-2020. Les jours présents dans
+    stat_entrees ne sont pas touchés (les deux tables diffèrent légèrement
+    sur certains jours communs, de quelques %) : stat_entrees_det ne sert
+    qu'à combler les jours manquants, au même pas de temps.
+    """
+    jours = set(pd.to_datetime(entrees["date"]))
+    complement = entrees_det[
+        (entrees_det["entree"] > 0) & ~pd.to_datetime(entrees_det["date"]).isin(jours)]
+    complement = complement[["date", "heure", "entree"]].rename(columns={"entree": "entrees"})
+    return pd.concat([entrees, complement], ignore_index=True)
+
+
+# Tables sources et colonne de date, pour borner l'extraction à la dernière
+# date chargée dans toutes les sources (voir derniere_date_commune()).
+SOURCES = [
+    ("stat_issues", "issuedate"),
+    ("stat_webkiosk", "heure_deb"),
+    ("stat_wifi", "start_wifi"),
+    ("stat_impressions", "date_impression"),
+    ("stat_freq_etude", "datetime_entree"),
+    ("stat_entrees", "datetime"),
+    ("stat_entrees_det", "datetime"),
+]
+
+
+def extraire_occupation_ordinateurs(engine, params, pas=60):
+    """occupation_ordinateurs = nombre moyen d'ordinateurs publics occupés sur
+    le créneau (minutes de session dans le créneau / durée du créneau), depuis
+    les sessions début/fin de statdb.stat_webkiosk - calcul dans
+    kiblib.utils.frequentation.calculer_occupation_sessions(). Même filtre du
+    lundi que connexions_postes (sur le début de session). Sessions de plus de
+    8 h écartées : fins manifestement fausses, massives en 2014-2015 (344
+    sessions et 17 % des heures cumulées en 2014), 1 à 3 par an ensuite.
+
+    Pas d'équivalent wifi : depuis novembre 2021, end_wifi de statdb.stat_wifi
+    est l'expiration d'un forfait (120, 240 ou 600 minutes), pas une
+    déconnexion réelle - voir README.
+    """
+    sessions = pd.read_sql(
+        """
+        SELECT heure_deb AS debut, heure_fin AS fin
+        FROM statdb.stat_webkiosk
+        WHERE heure_deb >= %(debut)s AND heure_deb < %(fin)s
+          AND DAYOFWEEK(heure_deb) != 2
+        """,
+        con=engine, params=params, parse_dates=["debut", "fin"])
+    occupation = calculer_occupation_sessions(sessions, pas, duree_max=8 * 60)
+    return occupation.rename(columns={"occupation": "occupation_ordinateurs"})
+
+
+def derniere_date_commune(engine):
+    """Dernière date chargée dans toutes les sources.
+
+    Les sources ne sont pas alimentées au même rythme (webkiosk, wifi et
+    impressions par import CSV manuel, prêts/retours par le dump de
+    koha_prod, entrées par le cron quotidien) : au-delà de la dernière date
+    commune, une colonne à 0 signifierait "pas encore importé" et non "aucune
+    activité". Retourne (date, {source: dernière date}).
+    """
+    dates = {
+        f"{table}.{colonne}": pd.read_sql(
+            f"SELECT DATE(MAX({colonne})) AS d FROM statdb.{table}", con=engine)["d"][0]
+        for table, colonne in SOURCES}
+    return min(dates.values()), dates
 
 
 def extraire(engine, debut, fin, pas):
@@ -178,6 +251,9 @@ def extraire(engine, debut, fin, pas):
     # frequentation_etude = nombre d'entrées en salle d'étude (badgeage direct,
     # webapp/services.py::is_entrance() - pas un import CSV différé comme
     # webkiosk/wifi/impressions). Même filtre du lundi que les autres colonnes.
+    # Exclusion ponctuelle du 2026-09-20 à 14h31 : 313 badgeages dans la même
+    # minute (un dimanche, contre 24/h au plus tous les autres jours) - lot
+    # artificiel, pas de la fréquentation (voir README).
     frequentation_etude = pd.read_sql(
         f"""
         SELECT DATE(datetime_entree) AS date, {expr_heure('datetime_entree')} AS heure,
@@ -185,6 +261,8 @@ def extraire(engine, debut, fin, pas):
         FROM statdb.stat_freq_etude
         WHERE datetime_entree >= %(debut)s AND datetime_entree < %(fin)s
           AND DAYOFWEEK(datetime_entree) != 2
+          AND NOT (DATE(datetime_entree) = '2026-09-20' AND HOUR(datetime_entree) = 14
+                   AND MINUTE(datetime_entree) = 31)
         GROUP BY DATE(datetime_entree), {expr_heure('datetime_entree')}
         """,
         con=engine, params=params)
@@ -238,6 +316,7 @@ def extraire(engine, debut, fin, pas):
             HAVING SUM(entrees) > 0
             """,
             con=engine, params=params)
+        entrees = completer_entrees(entrees, entrees_det)
     else:
         entrees = (
             entrees_det[entrees_det["entree"] > 0][["date", "heure", "entree"]]
@@ -270,6 +349,11 @@ def extraire(engine, debut, fin, pas):
     df["occupation"] = df["occupation"].fillna(0).astype(int)
 
     df["date"] = pd.to_datetime(df["date"])
+    # occupation_ordinateurs : même principe de jointure gauche que occupation
+    # (moyenne sur le créneau, 0 légitime, ne crée pas de ligne).
+    df = df.merge(
+        extraire_occupation_ordinateurs(engine, params, pas), on=["date", "heure"], how="left")
+    df["occupation_ordinateurs"] = df["occupation_ordinateurs"].fillna(0.0)
     df["annee"] = df["date"].dt.year
     df["jour"] = df["date"].dt.day
     df["mois"] = df["date"].dt.month
@@ -328,6 +412,14 @@ def reconstruire_2014_2020(engine):
     data_mel.loc[lundi, ["prets", "connexions_postes"]] = 0
     hors_ouverture = ~data_mel["heure_int"].between(9, 19)
     data_mel.loc[hors_ouverture, "prets"] = 0
+
+    # Connexions fantômes à 2h du matin (juillet 2014 -> septembre 2016) :
+    # toujours connexions_postes=1 sans autre activité, sur les jours 1 à 9 du
+    # mois, absentes de stat_webkiosk/stat_sessions_webkiosk - artefact de
+    # l'ancien pipeline Perl, non reproductible (voir README). Annulées ; la
+    # ligne, devenue entièrement nulle, est retirée par le filet de sécurité
+    # plus bas.
+    data_mel.loc[data_mel["heure_int"] == 2, "connexions_postes"] = 0
 
     # Même filtre du lundi que dans extraire() (médiathèque fermée au public,
     # toute connexion ce jour-là est un test).
@@ -397,6 +489,7 @@ def reconstruire_2014_2020(engine):
         """,
         con=engine, params=params)
     entrees_det["date"] = pd.to_datetime(entrees_det["date"])
+    entrees = completer_entrees(entrees, entrees_det)
 
     occupation = calculer_occupation(entrees_det)
 
@@ -440,6 +533,13 @@ def reconstruire_2014_2020(engine):
         occupation.rename(columns={"heure": "heure_int"}),
         on=["date", "heure_int"], how="left")
     data_mel["occupation"] = data_mel["occupation"].fillna(0).astype(int)
+
+    occupation_ordinateurs = extraire_occupation_ordinateurs(engine, params)
+    occupation_ordinateurs["date"] = occupation_ordinateurs["date"].dt.strftime("%Y-%m-%d")
+    data_mel = data_mel.merge(
+        occupation_ordinateurs.rename(columns={"heure": "heure_int"}),
+        on=["date", "heure_int"], how="left")
+    data_mel["occupation_ordinateurs"] = data_mel["occupation_ordinateurs"].fillna(0.0)
     data_mel = data_mel.drop(columns=["heure_int"])
     return data_mel[COLONNES]
 
@@ -447,6 +547,13 @@ def reconstruire_2014_2020(engine):
 if __name__ == "__main__":
     start_date, end_date, pas = parse_args()
     engine = DbConn().create_engine()
+
+    derniere, dates_sources = derniere_date_commune(engine)
+    if end_date > derniere + timedelta(days=1):
+        end_date = derniere + timedelta(days=1)
+        print(f"--end-date ramenée au {end_date} (exclue) : dernière date chargée dans toutes les sources.")
+        for source, d in sorted(dates_sources.items(), key=lambda x: x[1]):
+            print(f"    {source} : {d}")
 
     nouveau = extraire(engine, start_date, end_date, pas)
     nom_fichier = (

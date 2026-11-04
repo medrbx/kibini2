@@ -150,6 +150,7 @@ class Adherent():
         self.get_inscription_carte_personnalite_code()
         self.get_inscription_site_code()
         self.get_inscription_attributs_code()
+        self.get_inscription_attributs_code_by_prefix()
         self.get_sexe_code()
         self.get_age_code_by_dateofbirth()
         self.get_age_code_by_age()
@@ -449,6 +450,22 @@ class Adherent():
                         on='borrowernumber',
                         how='left')
 
+    def get_inscription_attributs_code_by_prefix(self):
+        """
+        Repli quand borrowernumber est absent (ex. statdb.stat_adherents) :
+        inscription_attribut ne conserve que les valeurs jointes par '|'
+        ('AM01|B08'), sans le code d'attribut Koha, mais chaque valeur porte un
+        préfixe propre à sa catégorie (AM, B, COL, PCS) - suffisant pour
+        reconstituer les 4 colonnes (vérifié identique à l'historique
+        2023-2025, voir README).
+        """
+        if ('inscription_attribut' in self.df and
+                'adh_inscription_attribut_action_code' not in self.df):
+            attributs = self.df['inscription_attribut'].fillna('').astype(str)
+            for col, prefix in [('action', 'AM'), ('bus', 'B'), ('collect', 'COL'), ('pcs', 'PCS')]:
+                self.df[f'adh_inscription_attribut_{col}_code'] = attributs.str.extract(
+                    rf'(?:^|\|)({prefix}\d+)(?:\||$)', expand=False)
+
     def get_inscription_attribut_action(self):
         if ('adh_inscription_attribut_action_code' in self.df and
                 'adh_inscription_attribut_action' not in self.df):
@@ -525,7 +542,8 @@ class Adherent():
         """
         Libellé composite ('prêt + étude', 'aucune trace'...), retrouvé par
         comparaison avec les compteurs nb_venues_* sur le CSV publié : ordre
-        fixe prêt/étude/postes/wifi, jointure par ' + ', 'aucune trace' si rien.
+        fixe prêt/étude/ordinateurs/wifi, jointure par ' + ', 'aucune trace' si
+        rien ('postes' dans l'historique jusqu'à 2025, renommé à la publication).
         """
         required = [
             'nb_venues_prets', 'nb_venues_salle_etude',
@@ -538,7 +556,7 @@ class Adherent():
                 if row['nb_venues_salle_etude'] > 0:
                     parts.append('étude')
                 if row['nb_venues_postes_informatiques'] > 0:
-                    parts.append('postes')
+                    parts.append('ordinateurs')
                 if row['nb_venues_wifi'] > 0:
                     parts.append('wifi')
                 return ' + '.join(parts) if parts else 'aucune trace'
