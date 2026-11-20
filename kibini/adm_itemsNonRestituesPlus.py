@@ -12,7 +12,7 @@ SELECT i.itemnumber
 FROM koha_prod.items i
 JOIN koha_prod.issues iss ON iss.itemnumber = i.itemnumber
 JOIN koha_prod.borrowers b ON iss.borrowernumber = b.borrowernumber
-WHERE i.withdrawn != 3 AND iss.date_due < CURDATE() - INTERVAL 90 DAY AND i.location != 'MED0A'
+WHERE i.withdrawn != 3 AND iss.date_due < CURDATE() - INTERVAL 180 DAY AND i.location != 'MED0A'
 AND b.categorycode NOT IN ('ECOL', 'CLAS', 'COLS')
 """
 
@@ -24,13 +24,13 @@ if r > 0:
     file_out = join(dir_data, "items_nonRestituesPlus.csv")
     df.to_csv(file_out, header=False, index=False)
 
-    subject = "[Kibini] Exemplaires à passer en 'Retard > 90 jours'"
+    subject = "[Kibini] Exemplaires à passer en 'Retard > 180 jours'"
     fromaddr = 'PICHENOT François <fpichenot@ville-roubaix.fr>'
     to = ', '.join(['PICHENOT François <fpichenot@ville-roubaix.fr>', 'CHIRLIAS Lucas <lchirlias@ville-roubaix.fr>'])
     content = f"""\
-        Exemplaires à passer en "0 - Retiré de la circulation ?" : "Retard > 90 jours".
+        Exemplaires à passer en "0 - Retiré de la circulation ?" : "Retard > 180 jours".
 	    Bien laisser le champ "2 - Perdu ?" en "Non restitué".
-        Documents avec un retard de plus de 90 jours.
+        Documents avec un retard de plus de 180 jours.
         {r} documents sont concernés.
         """
     send_email(fromaddr, to, subject, content, file=file_out)

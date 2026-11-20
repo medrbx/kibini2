@@ -4,6 +4,7 @@ data/*
 
 data_lucas
 kibini/conf/kibini_conf.yml
+kibini/webapp/static/data/*
 test_notebook2html.sh
 
 .~lock.*
